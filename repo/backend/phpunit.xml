@@ -55,5 +55,8 @@
         <env name="ATTACHMENT_ENCRYPTION_KEY" value="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="/>
         <env name="LAN_BASE_URL" value="http://localhost:8000"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
+        <ini name="memory_limit" value="256M"/>
+        <ini name="opcache.enable" value="0"/>
+        <ini name="opcache.jit" value="off"/>
     </php>
 </phpunit>

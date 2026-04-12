@@ -141,6 +141,11 @@ CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 # production runtime image.
 FROM base AS test
 
+# Disable OPcache in test image to reduce memory footprint (~256MB savings)
+RUN echo "opcache.enable=0" > /usr/local/etc/php/conf.d/zz-test-overrides.ini \
+    && echo "opcache.enable_cli=0" >> /usr/local/etc/php/conf.d/zz-test-overrides.ini \
+    && echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/zz-test-overrides.ini
+
 RUN composer install \
     --no-interaction \
     --prefer-dist \

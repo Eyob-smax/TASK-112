@@ -7,22 +7,8 @@
 #
 # Usage:
 #   ./run_tests.sh              Run all tests (unit + API)
+#   ./run_tests.sh --skip-build Skip Docker image rebuild (CI mode)
 #   ./run_tests.sh --coverage   Run all tests with code coverage report
-#                               (requires Xdebug or PCOV in the container)
-#
-# Prerequisites:
-#   1. Copy repo/backend/.env.example to repo/backend/.env
-#   2. Fill required environment variables (APP_KEY, DB_PASSWORD, etc.)
-#   3. The script will start backend-test automatically if needed
-#   4. The test database (meridian_test) is created automatically on first
-#      MySQL boot from docker/mysql/init-test-db.sql
-#
-# Test suite locations:
-#   Unit tests:  repo/backend/unit_tests/   (domain logic, no HTTP)
-#   API tests:   repo/backend/api_tests/    (full HTTP integration)
-#
-# Test runner:   Pest 2.x (PHPUnit-compatible)
-# Test database: meridian_test (separate from production meridian database)
 # =============================================================================
 
 COMPOSE_PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -36,6 +22,7 @@ export COMPOSE_IGNORE_ORPHANS=True
 # ---------------------------------------------------------------------------
 COVERAGE_FLAG=""
 COVERAGE_MODE=false
+SKIP_BUILD=false
 
 for arg in "$@"; do
     case $arg in
@@ -43,12 +30,14 @@ for arg in "$@"; do
             COVERAGE_FLAG="--coverage"
             COVERAGE_MODE=true
             ;;
+        --skip-build)
+            SKIP_BUILD=true
+            ;;
         --help|-h)
-            echo "Usage: $0 [--coverage]"
+            echo "Usage: $0 [--skip-build] [--coverage]"
             echo ""
+            echo "  --skip-build Skip Docker image rebuild (use in CI where image is pre-built)"
             echo "  --coverage   Generate coverage report (requires Xdebug or PCOV)"
-            echo ""
-            echo "  Coverage output: repo/backend/coverage/html/index.html"
             exit 0
             ;;
         *)
@@ -72,17 +61,19 @@ echo "=============================================="
 cd "${COMPOSE_PROJECT_DIR}"
 
 # ---------------------------------------------------------------------------
-# Always rebuild to pick up source changes (code is baked into the image)
+# Build (skippable for CI where the image is already built)
 # ---------------------------------------------------------------------------
-echo ""
-# Touch a trigger file to invalidate Docker's COPY cache (Windows/BuildKit workaround)
-echo "$(date +%s)" > backend/.build-trigger
-
-echo " Building backend-test image..."
-if ! $COMPOSE_CMD build backend-test; then
+if [ "$SKIP_BUILD" = false ]; then
     echo ""
-    echo "ERROR: Failed to build backend-test."
-    exit 1
+    # Touch a trigger file to invalidate Docker's COPY cache (Windows/BuildKit workaround)
+    echo "$(date +%s)" > backend/.build-trigger
+
+    echo " Building backend-test image..."
+    if ! $COMPOSE_CMD build backend-test; then
+        echo ""
+        echo "ERROR: Failed to build backend-test."
+        exit 1
+    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -184,7 +175,6 @@ fi
 
 echo "=============================================="
 
-# Exit non-zero if either suite failed (allows CI to detect failures
-# even when the other suite completed successfully)
+# Exit non-zero if either suite failed
 FINAL_EXIT=$(( UNIT_EXIT > API_EXIT ? UNIT_EXIT : API_EXIT ))
 exit $FINAL_EXIT
