@@ -1,0 +1,19 @@
+{
+  "messages": [],
+  "meta": {
+    "session_meta": {},
+    "token_counts": [],
+    "skipped_events_count": 0,
+    "skipped_events": [],
+    "subagents": [],
+    "merge_warnings": [],
+    "merge_stats": {
+      "main_messages": 0,
+      "subagent_messages": 0,
+      "merged_messages": 0,
+      "subagent_count": 0,
+      "has_subagents": false,
+      "source_root": "C:\\Users\\Hello\\.claude\\projects\\C--Users-Hello-Downloads-TASK-112-task-112"
+    }
+  }
+}
