@@ -1,0 +1,197 @@
+# =============================================================================
+# Meridian Enterprise — Docker Compose
+# =============================================================================
+# Single-host offline deployment.
+# Services:  backend (Laravel 11, PHP 8.3) | mysql (MySQL 8.0)
+# Optional test profile: backend-test (Dockerfile test target with dev deps)
+# Ports:     app → 8000 | mysql → 3306
+#
+# Environment variable resolution:
+#   All ${VAR} references below are read from backend/.env at compose runtime.
+#   Copy backend/.env.example to backend/.env and fill in required values.
+#
+# Usage:
+#   cp backend/.env.example backend/.env   # first-time setup
+#   docker compose up -d                   # start all services
+#   docker compose logs -f                 # stream logs
+#   docker compose down                    # stop (data persists in volumes)
+#   docker compose down -v                 # stop AND destroy volumes
+#
+# Test profile usage:
+#   docker compose --profile test up -d backend-test
+#
+# Test database (meridian_test) is created automatically on first MySQL boot
+# from backend/docker/mysql/init-test-db.sql.
+#
+# See README.md for full setup instructions.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Backend — Laravel 11 / PHP 8.3
+  # Serves the API on port 8000 via `php artisan serve` (managed by supervisord).
+  # Also runs the queue worker and cron scheduler via supervisord.
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: meridian_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: "${APP_NAME:-Meridian}"
+      APP_ENV: "${APP_ENV:-production}"
+      APP_KEY: "base64:6oBZ+4Ee7Jxq8sFWUEZrcY3LE4N8H+FQSEF0YzAqmrI="
+      APP_DEBUG: "${APP_DEBUG:-false}"
+      APP_TIMEZONE: "${APP_TIMEZONE:-UTC}"
+      APP_URL: "http://localhost:8000"
+      LAN_BASE_URL: "${LAN_BASE_URL:-http://localhost:8000}"
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_DATABASE: "${DB_DATABASE:-meridian}"
+      DB_USERNAME: "${DB_USERNAME:-meridian}"
+      DB_PASSWORD: "MeridianDbPass123!"
+      QUEUE_CONNECTION: database
+      QUEUE_FAILED_DRIVER: database-uuids
+      FILESYSTEM_DISK: local
+      ATTACHMENT_ENCRYPTION_KEY: "o4Wc9EhSf2lI3rQ1Wb9z4V6n8Kx0TmUy5pJd7FaQ2Hc="
+      ATTACHMENT_MAX_SIZE_MB: "${ATTACHMENT_MAX_SIZE_MB:-25}"
+      ATTACHMENT_MAX_FILES_PER_RECORD: "${ATTACHMENT_MAX_FILES_PER_RECORD:-20}"
+      ATTACHMENT_VALIDITY_DAYS: "${ATTACHMENT_VALIDITY_DAYS:-365}"
+      LINK_MAX_TTL_HOURS: "${LINK_MAX_TTL_HOURS:-72}"
+      BACKUP_RETENTION_DAYS: "${BACKUP_RETENTION_DAYS:-14}"
+      BACKUP_SCHEDULE_TIME: "${BACKUP_SCHEDULE_TIME:-02:00}"
+      METRICS_RETENTION_DAYS: "${METRICS_RETENTION_DAYS:-90}"
+      LOG_RETENTION_DAYS: "${LOG_RETENTION_DAYS:-90}"
+      AUTH_MAX_FAILED_ATTEMPTS: "${AUTH_MAX_FAILED_ATTEMPTS:-5}"
+      AUTH_LOCKOUT_MINUTES: "${AUTH_LOCKOUT_MINUTES:-15}"
+      CANARY_MAX_PERCENT: "${CANARY_MAX_PERCENT:-10}"
+      CANARY_MIN_PROMOTION_HOURS: "${CANARY_MIN_PROMOTION_HOURS:-24}"
+      CANARY_STORE_COUNT: "${CANARY_STORE_COUNT:-0}"
+      RESTOCK_FEE_DEFAULT_PERCENT: "${RESTOCK_FEE_DEFAULT_PERCENT:-10}"
+      RESTOCK_FEE_QUALIFYING_DAYS: "${RESTOCK_FEE_QUALIFYING_DAYS:-30}"
+      WORKFLOW_SLA_BUSINESS_DAYS: "${WORKFLOW_SLA_BUSINESS_DAYS:-2}"
+    volumes:
+      # Persistent attachment storage (encrypted payloads)
+      - attachment_storage:/var/www/html/storage/app/attachments
+      # Persistent backup storage
+      - backup_storage:/var/www/html/storage/app/backups
+      # Persistent application logs
+      - app_logs:/var/www/html/storage/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - meridian_net
+
+  # ---------------------------------------------------------------------------
+  # Backend Test Runner — Laravel 11 / PHP 8.3
+  # Uses the Dockerfile "test" target with dev dependencies for Pest/PHPUnit.
+  # This service is intended for on-demand test execution, not long-running API
+  # traffic.
+  # ---------------------------------------------------------------------------
+  backend-test:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    container_name: meridian_backend_test
+    restart: "no"
+    environment:
+      APP_NAME: "${APP_NAME:-Meridian}"
+      APP_ENV: testing
+      APP_KEY: "base64:6oBZ+4Ee7Jxq8sFWUEZrcY3LE4N8H+FQSEF0YzAqmrI="
+      APP_DEBUG: "${APP_DEBUG:-false}"
+      APP_TIMEZONE: "${APP_TIMEZONE:-UTC}"
+      APP_URL: "http://localhost:8000"
+      LAN_BASE_URL: "${LAN_BASE_URL:-http://localhost:8000}"
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_DATABASE: meridian_test
+      DB_USERNAME: "${DB_USERNAME:-meridian}"
+      DB_PASSWORD: "MeridianDbPass123!"
+      QUEUE_CONNECTION: sync
+      QUEUE_FAILED_DRIVER: database-uuids
+      FILESYSTEM_DISK: local
+      ATTACHMENT_ENCRYPTION_KEY: "o4Wc9EhSf2lI3rQ1Wb9z4V6n8Kx0TmUy5pJd7FaQ2Hc="
+      ATTACHMENT_MAX_SIZE_MB: "${ATTACHMENT_MAX_SIZE_MB:-25}"
+      ATTACHMENT_MAX_FILES_PER_RECORD: "${ATTACHMENT_MAX_FILES_PER_RECORD:-20}"
+      ATTACHMENT_VALIDITY_DAYS: "${ATTACHMENT_VALIDITY_DAYS:-365}"
+      LINK_MAX_TTL_HOURS: "${LINK_MAX_TTL_HOURS:-72}"
+      BACKUP_RETENTION_DAYS: "${BACKUP_RETENTION_DAYS:-14}"
+      BACKUP_SCHEDULE_TIME: "${BACKUP_SCHEDULE_TIME:-02:00}"
+      METRICS_RETENTION_DAYS: "${METRICS_RETENTION_DAYS:-90}"
+      LOG_RETENTION_DAYS: "${LOG_RETENTION_DAYS:-90}"
+      AUTH_MAX_FAILED_ATTEMPTS: "${AUTH_MAX_FAILED_ATTEMPTS:-5}"
+      AUTH_LOCKOUT_MINUTES: "${AUTH_LOCKOUT_MINUTES:-15}"
+      CANARY_MAX_PERCENT: "${CANARY_MAX_PERCENT:-10}"
+      CANARY_MIN_PROMOTION_HOURS: "${CANARY_MIN_PROMOTION_HOURS:-24}"
+      CANARY_STORE_COUNT: "${CANARY_STORE_COUNT:-0}"
+      RESTOCK_FEE_DEFAULT_PERCENT: "${RESTOCK_FEE_DEFAULT_PERCENT:-10}"
+      RESTOCK_FEE_QUALIFYING_DAYS: "${RESTOCK_FEE_QUALIFYING_DAYS:-30}"
+      WORKFLOW_SLA_BUSINESS_DAYS: "${WORKFLOW_SLA_BUSINESS_DAYS:-2}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - meridian_net
+
+  # ---------------------------------------------------------------------------
+  # MySQL 8.0
+  # Internal service — not exposed beyond the Docker network except for
+  # the mapped port 3306 for administrative access from the LAN host only.
+  #
+  # On first boot, runs all *.sql files in /docker-entrypoint-initdb.d/,
+  # which creates the test database (meridian_test) in addition to the
+  # production database (meridian) created by MYSQL_DATABASE.
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: meridian_mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "MeridianRootPass123!"
+      MYSQL_DATABASE: "${DB_DATABASE:-meridian}"
+      MYSQL_USER: "${DB_USERNAME:-meridian}"
+      MYSQL_PASSWORD: "MeridianDbPass123!"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/docker/mysql/my.cnf:/etc/mysql/conf.d/meridian.cnf:ro
+      # Creates meridian_test database on first boot
+      - ./backend/docker/mysql/init-test-db.sql:/docker-entrypoint-initdb.d/10-init-test-db.sql:ro
+    healthcheck:
+      # Simple connectivity check — no credentials needed for mysqladmin ping
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - meridian_net
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  mysql_data:
+    driver: local
+  attachment_storage:
+    driver: local
+  backup_storage:
+    driver: local
+  app_logs:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  meridian_net:
+    driver: bridge

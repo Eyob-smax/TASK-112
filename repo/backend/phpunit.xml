@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         processIsolation="false"
+         stopOnFailure="false"
+>
+    <!--
+    |--------------------------------------------------------------------------
+    | Meridian Test Suites
+    |--------------------------------------------------------------------------
+    | Unit tests: Non-HTTP domain and application logic tests
+    |             Live in repo/backend/unit_tests/
+    |
+    | Api tests:  HTTP-level API and multi-step integration tests
+    |             Live in repo/backend/api_tests/
+    |
+    | Run all tests via: php artisan test
+    | Run unit only:     php artisan test --testsuite=Unit
+    | Run API only:      php artisan test --testsuite=Api
+    |
+    | In Docker (via run_tests.sh): docker compose exec backend php artisan test
+    -->
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>unit_tests</directory>
+        </testsuite>
+        <testsuite name="Api">
+            <directory>api_tests</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+
+    <coverage includeUncoveredFiles="true">
+        <!--
+        |----------------------------------------------------------------------
+        | Coverage Reporting
+        |----------------------------------------------------------------------
+        | HTML report: coverage/html/index.html
+        | Text summary: printed to stdout (summary only, no per-file noise)
+        |
+        | Requires Xdebug (XDEBUG_MODE=coverage) or PCOV extension.
+        | Enable via:  docker compose exec backend php artisan test --coverage
+        | Or via:      ./run_tests.sh --coverage
+        -->
+        <report>
+            <html outputDirectory="coverage/html"/>
+            <text outputFile="php://stdout" showUncoveredFiles="false" showOnlySummary="true"/>
+        </report>
+    </coverage>
+
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:2fl+Ktvkfl+Fuz4Qp/A75G2RTiWVA/ZoKZvp6fiiM10="/>
+        <env name="APP_DEBUG" value="true"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_HOST" value="mysql"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_DATABASE" value="meridian_test"/>
+        <env name="DB_USERNAME" value="meridian"/>
+        <env name="DB_PASSWORD" value="change_me_in_production"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="FILESYSTEM_DISK" value="local"/>
+        <!-- 32 null bytes base64-encoded — valid AES-256 test key (no base64: prefix here; that is a Laravel APP_KEY convention, not used by EncryptionService) -->
+        <env name="ATTACHMENT_ENCRYPTION_KEY" value="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="/>
+        <env name="LAN_BASE_URL" value="http://localhost:8000"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+    </php>
+</phpunit>
