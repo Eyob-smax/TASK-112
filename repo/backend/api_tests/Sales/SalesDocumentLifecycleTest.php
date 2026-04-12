@@ -74,7 +74,7 @@ describe('Sales Document Lifecycle', function () {
                     'unit_price'   => 50.00,
                 ],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $response->assertStatus(201);
         return $response->json('data');
     }
@@ -95,7 +95,7 @@ describe('Sales Document Lifecycle', function () {
                     'user_required' => $user->id,
                 ],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201);
 
@@ -111,7 +111,7 @@ describe('Sales Document Lifecycle', function () {
             'record_type'          => 'sales_document',
             'record_id'            => $salesDocumentId,
             'context'              => [],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201);
 
@@ -129,7 +129,7 @@ describe('Sales Document Lifecycle', function () {
             'site_code'     => 'HQ',
             'department_id' => $this->dept->id,
             'notes'         => 'First sale',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201)
                  ->assertJsonPath('data.status', SalesStatus::Draft->value);
@@ -218,7 +218,7 @@ describe('Sales Document Lifecycle', function () {
 
         Sanctum::actingAs($this->manager);
 
-        $response = $this->postJson("/api/v1/sales/{$doc['id']}/submit");
+        $response = $this->postJson("/api/v1/sales/{$doc['id']}/submit", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.status', SalesStatus::Reviewed->value);
@@ -233,9 +233,9 @@ describe('Sales Document Lifecycle', function () {
 
         Sanctum::actingAs($this->manager);
 
-        $this->postJson("/api/v1/sales/{$doc['id']}/submit")->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$doc['id']}/submit", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
-        $response = $this->postJson("/api/v1/sales/{$doc['id']}/complete");
+        $response = $this->postJson("/api/v1/sales/{$doc['id']}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.status', SalesStatus::Completed->value);
@@ -255,7 +255,7 @@ describe('Sales Document Lifecycle', function () {
 
         Sanctum::actingAs($this->manager);
 
-        $response = $this->postJson("/api/v1/sales/{$doc['id']}/complete");
+        $response = $this->postJson("/api/v1/sales/{$doc['id']}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'invalid_sales_transition');
@@ -272,7 +272,7 @@ describe('Sales Document Lifecycle', function () {
 
         $response = $this->postJson("/api/v1/sales/{$doc['id']}/void", [
             'reason' => 'Customer cancelled order.',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.status', SalesStatus::Voided->value);
@@ -283,12 +283,12 @@ describe('Sales Document Lifecycle', function () {
 
         Sanctum::actingAs($this->manager);
 
-        $this->postJson("/api/v1/sales/{$doc['id']}/submit")->assertStatus(200);
-        $this->postJson("/api/v1/sales/{$doc['id']}/complete")->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$doc['id']}/submit", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$doc['id']}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         $response = $this->postJson("/api/v1/sales/{$doc['id']}/void", [
             'reason' => 'Trying to void a completed doc.',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'invalid_sales_transition');
@@ -303,7 +303,7 @@ describe('Sales Document Lifecycle', function () {
 
         Sanctum::actingAs($this->manager);
 
-        $response = $this->postJson("/api/v1/sales/{$doc['id']}/link-outbound");
+        $response = $this->postJson("/api/v1/sales/{$doc['id']}/link-outbound", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'outbound_linkage_not_allowed');
@@ -314,10 +314,10 @@ describe('Sales Document Lifecycle', function () {
 
         Sanctum::actingAs($this->manager);
 
-        $this->postJson("/api/v1/sales/{$doc['id']}/submit")->assertStatus(200);
-        $this->postJson("/api/v1/sales/{$doc['id']}/complete")->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$doc['id']}/submit", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$doc['id']}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
-        $response = $this->postJson("/api/v1/sales/{$doc['id']}/link-outbound");
+        $response = $this->postJson("/api/v1/sales/{$doc['id']}/link-outbound", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'outbound_linkage_not_allowed');
@@ -329,17 +329,17 @@ describe('Sales Document Lifecycle', function () {
 
         Sanctum::actingAs($this->manager);
 
-        $this->postJson("/api/v1/sales/{$doc['id']}/submit")->assertStatus(200);
-        $this->postJson("/api/v1/sales/{$doc['id']}/complete")->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$doc['id']}/submit", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$doc['id']}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         $instance = startSalesWorkflowInstance($this->manager, $template['id'], $doc['id']);
         $nodeId = $instance['nodes'][0]['id'];
 
-        $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve")
+        $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve", [], ['X-Idempotency-Key' => Str::uuid()->toString()])
             ->assertStatus(200)
             ->assertJsonPath('data.instance_status', WorkflowStatus::Approved->value);
 
-        $response = $this->postJson("/api/v1/sales/{$doc['id']}/link-outbound");
+        $response = $this->postJson("/api/v1/sales/{$doc['id']}/link-outbound", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200);
         expect($response->json('data.outbound_linked_at'))->not->toBeNull();
@@ -351,12 +351,12 @@ describe('Sales Document Lifecycle', function () {
 
         Sanctum::actingAs($this->manager);
 
-        $this->postJson("/api/v1/sales/{$doc['id']}/submit")->assertStatus(200);
-        $this->postJson("/api/v1/sales/{$doc['id']}/complete")->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$doc['id']}/submit", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$doc['id']}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         startSalesWorkflowInstance($this->manager, $template['id'], $doc['id']);
 
-        $response = $this->postJson("/api/v1/sales/{$doc['id']}/link-outbound");
+        $response = $this->postJson("/api/v1/sales/{$doc['id']}/link-outbound", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'outbound_linkage_not_allowed');
@@ -375,7 +375,7 @@ describe('Sales Document Lifecycle', function () {
             'record_type'          => 'sales_document',
             'record_id'            => $doc['id'],
             'context'              => [],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'workflow_instance_already_linked');

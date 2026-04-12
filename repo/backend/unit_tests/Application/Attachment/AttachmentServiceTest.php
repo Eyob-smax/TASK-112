@@ -58,7 +58,7 @@ describe('AttachmentService', function () {
     // -------------------------------------------------------------------------
 
     it('throws DuplicateAttachmentException when fingerprint already exists', function () {
-        $file = \Illuminate\Http\UploadedFile::fake()->create('receipt.pdf', 100, 'application/pdf');
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('receipt.pdf', '%PDF-1.4 fake pdf content for unit testing');
 
         $this->attachRepo->shouldReceive('countActiveForRecord')->andReturn(0);
         $this->fingerprint->shouldReceive('computeFromPath')->andReturn(str_repeat('a', 64));
@@ -70,7 +70,7 @@ describe('AttachmentService', function () {
     });
 
     it('throws AttachmentCapacityExceededException when record already has 20 attachments', function () {
-        $file = \Illuminate\Http\UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf');
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('doc.pdf', '%PDF-1.4 fake pdf content for unit testing');
 
         $this->attachRepo->shouldReceive('countActiveForRecord')->andReturn(20);
 

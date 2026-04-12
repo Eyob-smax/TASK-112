@@ -33,6 +33,9 @@ class User extends Authenticatable
         'display_name',
         'department_id',
         'is_active',
+        'locked_until',
+        'failed_attempt_count',
+        'last_failed_at',
     ];
 
     protected $hidden = [

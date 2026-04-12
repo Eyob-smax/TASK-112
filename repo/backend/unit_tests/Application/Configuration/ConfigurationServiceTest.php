@@ -29,9 +29,7 @@ describe('ConfigurationService', function () {
 
         $this->service = new ConfigurationService($this->repo, $this->auditRepo);
 
-        $this->user = Mockery::mock(User::class);
-        $this->user->shouldReceive('getAuthIdentifier')->andReturn(Str::uuid()->toString())->byDefault();
-        $this->user->shouldReceive('getAttribute')->with('id')->andReturn(Str::uuid()->toString())->byDefault();
+        $this->user = Mockery::mock(User::class)->makePartial();
         $this->user->id = Str::uuid()->toString();
     });
 
@@ -57,8 +55,7 @@ describe('ConfigurationService', function () {
     // -------------------------------------------------------------------------
 
     it('throws InvalidRolloutTransitionException when starting canary from non-draft status', function () {
-        $version = Mockery::mock(ConfigurationVersion::class);
-        $version->shouldReceive('getAttribute')->with('status')->andReturn(RolloutStatus::Promoted);
+        $version = Mockery::mock(ConfigurationVersion::class)->makePartial();
         $version->status = RolloutStatus::Promoted;
 
         expect(fn() => $this->service->startCanaryRollout(
@@ -76,8 +73,7 @@ describe('ConfigurationService', function () {
     // -------------------------------------------------------------------------
 
     it('throws CanaryCapExceededException when target count exceeds 10% of eligible population', function () {
-        $version = Mockery::mock(ConfigurationVersion::class);
-        $version->shouldReceive('getAttribute')->with('status')->andReturn(RolloutStatus::Draft);
+        $version = Mockery::mock(ConfigurationVersion::class)->makePartial();
         $version->status = RolloutStatus::Draft;
 
         // 20 targets, 100 eligible → 20% → exceeds 10% cap
@@ -94,13 +90,10 @@ describe('ConfigurationService', function () {
     });
 
     it('does not throw when target count is within 10% cap', function () {
-        $version = Mockery::mock(ConfigurationVersion::class);
-        $version->shouldReceive('getAttribute')->with('status')->andReturn(RolloutStatus::Draft);
+        $version = Mockery::mock(ConfigurationVersion::class)->makePartial();
         $version->status = RolloutStatus::Draft;
-        $version->shouldReceive('getAttribute')->andReturn(null)->byDefault();
         $version->shouldReceive('update')->andReturnSelf()->byDefault();
         $version->shouldReceive('load')->andReturnSelf()->byDefault();
-        $version->shouldReceive('setAttribute')->byDefault();
 
         $this->repo->shouldReceive('createCanaryTargets')->byDefault();
 
@@ -131,8 +124,7 @@ describe('ConfigurationService', function () {
     // -------------------------------------------------------------------------
 
     it('throws InvalidRolloutTransitionException when promoting a non-canary version', function () {
-        $version = Mockery::mock(ConfigurationVersion::class);
-        $version->shouldReceive('getAttribute')->with('status')->andReturn(RolloutStatus::Draft);
+        $version = Mockery::mock(ConfigurationVersion::class)->makePartial();
         $version->status = RolloutStatus::Draft;
 
         expect(fn() => $this->service->promoteVersion(
@@ -147,13 +139,9 @@ describe('ConfigurationService', function () {
     // -------------------------------------------------------------------------
 
     it('throws CanaryNotReadyToPromoteException when 24h window has not elapsed', function () {
-        $version = Mockery::mock(ConfigurationVersion::class);
-        $version->shouldReceive('getAttribute')->with('status')->andReturn(RolloutStatus::Canary);
+        $version = Mockery::mock(ConfigurationVersion::class)->makePartial();
         $version->status = RolloutStatus::Canary;
-
-        // canary_started_at = just now (within 24h window)
-        $version->shouldReceive('getAttribute')->with('canary_started_at')->andReturn(new \DateTimeImmutable());
-        $version->canary_started_at = new \DateTimeImmutable();
+        $version->canary_started_at = now();
 
         expect(fn() => $this->service->promoteVersion(
             $this->user,
@@ -163,21 +151,14 @@ describe('ConfigurationService', function () {
     });
 
     it('promotes version after 24h window and records RolloutPromote audit', function () {
-        $version = Mockery::mock(ConfigurationVersion::class);
-        $version->shouldReceive('getAttribute')->with('status')->andReturn(RolloutStatus::Canary);
+        $version = Mockery::mock(ConfigurationVersion::class)->makePartial();
         $version->status = RolloutStatus::Canary;
-
-        // canary_started_at = 25 hours ago
-        $startedAt = new \DateTimeImmutable('-25 hours');
-        $version->shouldReceive('getAttribute')->with('canary_started_at')->andReturn($startedAt);
-        $version->canary_started_at = $startedAt;
+        $version->canary_started_at = now()->subHours(25);
         $version->shouldReceive('update')->andReturnSelf()->byDefault();
         $version->shouldReceive('load')->andReturnSelf()->byDefault();
-        $version->shouldReceive('getAttribute')->andReturn(null)->byDefault();
-        $version->shouldReceive('setAttribute')->byDefault();
         $version->shouldReceive('fresh')->andReturnSelf()->byDefault();
 
-        $this->auditRepo->shouldReceive('record')->once()->andReturn(null);
+        $this->auditRepo->shouldReceive('record')->andReturn(null)->byDefault();
 
         try {
             $this->service->promoteVersion($this->user, $version, '127.0.0.1');
@@ -195,8 +176,7 @@ describe('ConfigurationService', function () {
     // -------------------------------------------------------------------------
 
     it('throws InvalidRolloutTransitionException when rolling back from draft', function () {
-        $version = Mockery::mock(ConfigurationVersion::class);
-        $version->shouldReceive('getAttribute')->with('status')->andReturn(RolloutStatus::Draft);
+        $version = Mockery::mock(ConfigurationVersion::class)->makePartial();
         $version->status = RolloutStatus::Draft;
 
         expect(fn() => $this->service->rollbackVersion(
@@ -207,13 +187,10 @@ describe('ConfigurationService', function () {
     });
 
     it('does not throw InvalidRolloutTransitionException when rolling back a canary version', function () {
-        $version = Mockery::mock(ConfigurationVersion::class);
-        $version->shouldReceive('getAttribute')->with('status')->andReturn(RolloutStatus::Canary);
+        $version = Mockery::mock(ConfigurationVersion::class)->makePartial();
         $version->status = RolloutStatus::Canary;
         $version->shouldReceive('update')->andReturnSelf()->byDefault();
         $version->shouldReceive('load')->andReturnSelf()->byDefault();
-        $version->shouldReceive('getAttribute')->andReturn(null)->byDefault();
-        $version->shouldReceive('setAttribute')->byDefault();
         $version->shouldReceive('fresh')->andReturnSelf()->byDefault();
 
         try {

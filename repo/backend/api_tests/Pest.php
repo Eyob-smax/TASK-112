@@ -12,4 +12,4 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 pest()->extend(Tests\TestCase::class)
     ->use(RefreshDatabase::class)
-    ->in('Auth', 'Authorization', 'Contract', 'Document', 'Attachment', 'Configuration', 'Idempotency', 'Workflow', 'Sales', 'Returns', 'Audit', 'Admin');
+    ->in('Auth', 'Authorization', 'Contract', 'Document', 'Attachment', 'Configuration', 'Idempotency', 'Workflow', 'Sales', 'Returns', 'Audit', 'Admin', 'Departments', 'Roles');

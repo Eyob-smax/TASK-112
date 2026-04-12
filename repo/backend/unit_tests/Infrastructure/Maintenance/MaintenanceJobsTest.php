@@ -142,6 +142,7 @@ it('ExpireAttachmentLinksJob deletes links expired beyond the 24h grace period',
         'status'             => 'active',
         'uploaded_by'        => $user->id,
         'department_id'      => $dept->id,
+        'encryption_key_id'  => 'test-key-id',
     ]);
 
     // Link expired more than 24h ago (should be deleted)
@@ -192,6 +193,7 @@ it('ExpireAttachmentLinksJob emits an audit Delete event for each TTL-expired li
         'status'             => 'active',
         'uploaded_by'        => $user->id,
         'department_id'      => $dept->id,
+        'encryption_key_id'  => 'test-key-id',
     ]);
 
     $link = AttachmentLink::create([
@@ -252,6 +254,7 @@ it('ExpireAttachmentsJob emits an Update audit event for each attachment transit
         'expires_at'         => now()->subDay(),
         'uploaded_by'        => $user->id,
         'department_id'      => $dept->id,
+        'encryption_key_id'  => 'test-key-id',
     ]);
 
     (new ExpireAttachmentsJob())->handle(
@@ -259,7 +262,7 @@ it('ExpireAttachmentsJob emits an Update audit event for each attachment transit
         app(\App\Application\Logging\StructuredLogger::class),
     );
 
-    expect(Attachment::find($attachment->id)->status)->toBe('expired');
+    expect(Attachment::find($attachment->id)->status)->toBe(\App\Domain\Attachment\Enums\AttachmentStatus::Expired);
     expect(AuditEvent::where('auditable_id', $attachment->id)
         ->where('action', 'update')->exists())->toBeTrue();
 });

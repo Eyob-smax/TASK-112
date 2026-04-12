@@ -47,7 +47,7 @@ describe('Attachment Share Links', function () {
         // Upload one attachment to work with
         Sanctum::actingAs($this->manager, ['*'], 'sanctum');
 
-        $file = UploadedFile::fake()->create('financial_report.pdf', 200, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('financial_report.pdf', '%PDF-1.4 fake pdf content for unit testing');
 
         $upload = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",

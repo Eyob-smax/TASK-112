@@ -4,6 +4,7 @@ use App\Models\Department;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
 /**
@@ -49,7 +50,7 @@ describe('Admin User Management', function () {
             'password'      => 'SecurePass123!',
             'role'          => 'staff',
             'department_id' => $this->dept->id,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201)
                  ->assertJsonPath('data.username', 'new_valid_user')
@@ -66,12 +67,12 @@ describe('Admin User Management', function () {
             'password'      => 'Short1!',   // < 12 chars, no uppercase, has digit
             'role'          => 'staff',
             'department_id' => $this->dept->id,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422);
         // PasswordPolicy must surface the length violation message
         $errorBody = $response->json();
-        $messages = data_get($errorBody, 'errors.password', data_get($errorBody, 'message', ''));
+        $messages = data_get($errorBody, 'error.details.password', data_get($errorBody, 'errors.password', data_get($errorBody, 'message', '')));
         expect(json_encode($messages))->toContain('at least 12');
     });
 
@@ -85,11 +86,11 @@ describe('Admin User Management', function () {
             'password'      => 'alllowercasenodigit',  // no uppercase, no digit
             'role'          => 'staff',
             'department_id' => $this->dept->id,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422);
         $errorBody = $response->json();
-        $messages = json_encode(data_get($errorBody, 'errors.password', data_get($errorBody, 'message', '')));
+        $messages = json_encode(data_get($errorBody, 'error.details.password', data_get($errorBody, 'errors.password', data_get($errorBody, 'message', ''))));
         expect($messages)->toContain('uppercase');
         expect($messages)->toContain('digit');
     });
@@ -104,7 +105,7 @@ describe('Admin User Management', function () {
             'password'      => 'ValidPass123!',
             'role'          => 'staff',
             'department_id' => $this->dept->id,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(403);
     });
@@ -118,7 +119,7 @@ describe('Admin User Management', function () {
             'email'        => 'missing_department@example.com',
             'password'     => 'ValidPass123!',
             'role'         => 'staff',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422)
                  ->assertJsonPath('error.code', 'validation_error');
@@ -135,7 +136,7 @@ describe('Admin User Management', function () {
 
         $response = $this->putJson("/api/v1/admin/users/{$this->staff->id}/password", [
             'password' => 'NewSecurePass99!',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200);
     });
@@ -145,11 +146,11 @@ describe('Admin User Management', function () {
 
         $response = $this->putJson("/api/v1/admin/users/{$this->staff->id}/password", [
             'password' => 'weak',  // too short, no uppercase, no digit
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422);
         $errorBody = $response->json();
-        $messages = json_encode(data_get($errorBody, 'errors.password', data_get($errorBody, 'message', '')));
+        $messages = json_encode(data_get($errorBody, 'error.details.password', data_get($errorBody, 'errors.password', data_get($errorBody, 'message', ''))));
         expect($messages)->toContain('at least 12');
     });
 
@@ -158,7 +159,7 @@ describe('Admin User Management', function () {
 
         $response = $this->putJson("/api/v1/admin/users/{$this->staff->id}/password", [
             'password' => 'ValidPass123!',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(403);
     });

@@ -20,7 +20,15 @@ class Department extends Model
         'code',
         'parent_id',
         'description',
+        'is_active',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
 
     // -------------------------------------------------------------------------
     // Relations

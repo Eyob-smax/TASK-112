@@ -23,7 +23,6 @@ use App\Exceptions\Workflow\WorkflowNodeNotActionableException;
 use App\Exceptions\Workflow\WorkflowInstanceAlreadyLinkedException;
 use App\Exceptions\Workflow\WorkflowTemplateApplicabilityException;
 use App\Exceptions\Workflow\WorkflowTerminatedException;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -31,7 +30,6 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -43,10 +41,6 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        RateLimiter::for('public-links', function (Request $request) {
-            return Limit::perMinute(30)->by($request->ip() ?: 'unknown');
-        });
-
         $middleware->alias([
             'idempotency'    => \App\Http\Middleware\IdempotencyMiddleware::class,
             'mask.sensitive' => \App\Http\Middleware\MaskSensitiveFields::class,
@@ -382,16 +376,16 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         // 403 — Insufficient permissions
-        $exceptions->render(function (AuthorizationException $e, Request $request) {
-            if ($request->is('api/*')) {
-                return response()->json([
-                    'error' => [
-                        'code'    => 'forbidden',
-                        'message' => 'You are not authorized to perform this action.',
-                        'details' => (object) [],
-                    ],
-                ], 403);
-            }
+        // Laravel's mapException() converts AuthorizationException → AccessDeniedHttpException
+        // BEFORE render callbacks are checked, so we must catch the mapped class.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, Request $request) {
+            return response()->json([
+                'error' => [
+                    'code'    => 'forbidden',
+                    'message' => 'You are not authorized to perform this action.',
+                    'details' => (object) [],
+                ],
+            ], 403);
         });
 
         // 429 — Too many requests

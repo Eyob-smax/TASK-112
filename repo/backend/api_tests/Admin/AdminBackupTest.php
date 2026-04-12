@@ -8,6 +8,7 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
 /**
@@ -114,7 +115,7 @@ describe('Admin Backup Endpoints', function () {
         Queue::fake();
 
         Sanctum::actingAs($this->admin);
-        $response = $this->postJson('/api/v1/admin/backups');
+        $response = $this->postJson('/api/v1/admin/backups', [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(202);
         Queue::assertPushed(\App\Jobs\RunBackupJob::class);
@@ -122,7 +123,7 @@ describe('Admin Backup Endpoints', function () {
 
     it('returns 403 for non-admin when triggering manual backup', function () {
         Sanctum::actingAs($this->staff);
-        $response = $this->postJson('/api/v1/admin/backups');
+        $response = $this->postJson('/api/v1/admin/backups', [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(403);
     });

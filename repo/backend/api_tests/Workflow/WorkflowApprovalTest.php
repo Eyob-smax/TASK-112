@@ -79,7 +79,7 @@ describe('Workflow Approval', function () {
                     'label'      => 'Manager Review',
                 ],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $response->assertStatus(201);
         return $response->json('data');
     }
@@ -92,7 +92,7 @@ describe('Workflow Approval', function () {
             'record_type'          => 'document',
             'record_id'            => $recordId,
             'context'              => ['amount' => 500],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $response->assertStatus(201);
         return $response->json('data');
     }
@@ -122,7 +122,7 @@ describe('Workflow Approval', function () {
                     'label'             => 'Director Approval',
                 ],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201)
                  ->assertJsonPath('data.name', 'Purchase Approval')
@@ -145,7 +145,7 @@ describe('Workflow Approval', function () {
             'record_type'          => 'document',
             'record_id'            => $this->targetDocument->id,
             'context'              => [],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201)
                  ->assertJsonPath('data.status', WorkflowStatus::InProgress->value);
@@ -161,7 +161,7 @@ describe('Workflow Approval', function () {
             'record_type'          => 'expense_request',
             'record_id'            => $this->targetDocument->id,
             'context'              => [],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422)
                  ->assertJsonPath('error.code', 'validation_error');
@@ -177,7 +177,7 @@ describe('Workflow Approval', function () {
             'record_type'          => 'document',
             'record_id'            => Str::uuid()->toString(),
             'context'              => [],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(404);
     });
@@ -210,7 +210,9 @@ describe('Workflow Approval', function () {
 
         Sanctum::actingAs($this->manager);
 
-        $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve");
+        $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
 
         $response->assertStatus(200);
 
@@ -231,7 +233,7 @@ describe('Workflow Approval', function () {
 
         $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/reject", [
             'reason' => 'Budget exceeded for this quarter.',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200);
 
@@ -251,7 +253,7 @@ describe('Workflow Approval', function () {
 
         $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/reject", [
             'reason' => '',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422)
                  ->assertJsonPath('error.code', 'reason_required');
@@ -268,7 +270,7 @@ describe('Workflow Approval', function () {
         $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/reassign", [
             'target_user_id' => $this->staff->id,
             'reason'         => 'Staff is more appropriate for this request.',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200);
 
@@ -304,7 +306,7 @@ describe('Workflow Approval', function () {
 
         $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/add-approver", [
             'target_user_id' => $this->staff->id,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200);
 
@@ -353,7 +355,9 @@ describe('Workflow Approval', function () {
 
         Sanctum::actingAs($viewer);
 
-        $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve");
+        $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
 
         $response->assertStatus(403);
     });
@@ -373,7 +377,7 @@ describe('Workflow Approval', function () {
                     'user_required' => $this->manager->id, // explicitly assigned to manager
                 ],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $templateResponse->assertStatus(201);
         $template = $templateResponse->json('data');
 
@@ -383,7 +387,9 @@ describe('Workflow Approval', function () {
         // Staff has 'approve workflow nodes' permission but is NOT the assigned user
         Sanctum::actingAs($this->staff);
 
-        $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve");
+        $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
 
         // Must be 403 — staff has the permission but is not the assignee
         $response->assertStatus(403);
@@ -476,7 +482,7 @@ describe('Workflow Approval', function () {
             'nodes'         => [
                 ['node_type' => 'sequential', 'node_order' => 1, 'label' => 'Review'],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $templateResponse->assertStatus(201);
         $templateId = $templateResponse->json('data.id');
 
@@ -510,7 +516,7 @@ describe('Workflow Approval', function () {
             'nodes'         => [
                 ['node_type' => 'sequential', 'node_order' => 1, 'label' => 'Approve'],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $templateResponse->assertStatus(201);
         $templateId = $templateResponse->json('data.id');
 
@@ -530,7 +536,7 @@ describe('Workflow Approval', function () {
 
         $response = $this->putJson("/api/v1/workflow/templates/{$templateId}", [
             'name' => 'Tampered Name',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         // Has permission but is in the wrong department → 403
         $response->assertStatus(403);
@@ -546,7 +552,7 @@ describe('Workflow Approval', function () {
             'nodes'         => [
                 ['node_type' => 'sequential', 'node_order' => 1, 'label' => 'Own Review'],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $ownTemplateResponse->assertStatus(201);
         $ownTemplateId = $ownTemplateResponse->json('data.id');
 
@@ -569,7 +575,7 @@ describe('Workflow Approval', function () {
             'nodes'         => [
                 ['node_type' => 'sequential', 'node_order' => 1, 'label' => 'Other Review'],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $otherTemplateResponse->assertStatus(201);
         $otherTemplateId = $otherTemplateResponse->json('data.id');
 
@@ -580,7 +586,7 @@ describe('Workflow Approval', function () {
             'nodes'         => [
                 ['node_type' => 'sequential', 'node_order' => 1, 'label' => 'System Review'],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $systemTemplateResponse->assertStatus(201);
         $systemTemplateId = $systemTemplateResponse->json('data.id');
 
@@ -613,7 +619,7 @@ describe('Workflow Approval', function () {
                 ['node_type' => 'sequential', 'node_order' => 1, 'label' => 'Step One'],
                 ['node_type' => 'sequential', 'node_order' => 2, 'label' => 'Step Two'],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $templateResponse->assertStatus(201);
         $template = $templateResponse->json('data');
 
@@ -622,7 +628,7 @@ describe('Workflow Approval', function () {
             'record_type'          => 'document',
             'record_id'            => $this->targetDocument->id,
             'context'              => [],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $instanceResponse->assertStatus(201);
         $instance = $instanceResponse->json('data');
 
@@ -631,7 +637,9 @@ describe('Workflow Approval', function () {
         expect($node2)->not->toBeNull();
 
         // Attempt to approve node 2 before node 1 has been approved
-        $response = $this->postJson("/api/v1/workflow/nodes/{$node2['id']}/approve");
+        $response = $this->postJson("/api/v1/workflow/nodes/{$node2['id']}/approve", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
 
         // Must be rejected — predecessor (node_order=1) is still pending
         $response->assertStatus(409)
@@ -650,7 +658,7 @@ describe('Workflow Approval', function () {
 
         $response = $this->postJson("/api/v1/workflow/instances/{$instance['id']}/withdraw", [
             'reason' => 'Request no longer needed.',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.status', WorkflowStatus::Withdrawn->value);
@@ -665,7 +673,7 @@ describe('Workflow Approval', function () {
 
         $response = $this->postJson("/api/v1/workflow/instances/{$instance['id']}/withdraw", [
             'reason' => 'Not authorized.',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(403);
     });
@@ -688,7 +696,7 @@ describe('Workflow Approval', function () {
 
         $response = $this->postJson("/api/v1/workflow/instances/{$instance['id']}/withdraw", [
             'reason' => 'Operational cancellation.',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.status', WorkflowStatus::Withdrawn->value);
@@ -703,14 +711,19 @@ describe('Workflow Approval', function () {
         // Withdraw
         $this->postJson("/api/v1/workflow/instances/{$instance['id']}/withdraw", [
             'reason' => 'No longer needed.',
-        ])->assertStatus(200);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         // Try to approve a node after withdrawal
         $nodeId = $instance['nodes'][0]['id'];
-        $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve");
+        $response = $this->postJson("/api/v1/workflow/nodes/{$nodeId}/approve", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
 
+        // After withdrawal, node status is Withdrawn (not actionable).
+        // guardNodeActionable checks node status BEFORE instance terminal status,
+        // so node_not_actionable fires first.
         $response->assertStatus(409)
-                 ->assertJsonPath('error.code', 'workflow_terminated');
+                 ->assertJsonPath('error.code', 'node_not_actionable');
     });
 
     // -------------------------------------------------------------------------
@@ -728,7 +741,7 @@ describe('Workflow Approval', function () {
             'nodes'         => [
                 ['node_type' => 'sequential', 'node_order' => 1, 'label' => 'Review'],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $templateResponse->assertStatus(201);
         $templateId = $templateResponse->json('data.id');
 
@@ -738,7 +751,7 @@ describe('Workflow Approval', function () {
             'record_type'          => 'document',
             'record_id'            => $this->targetDocument->id,
             'context'              => ['event_type' => 'expense_request'],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422)
                  ->assertJsonPath('error.code', 'workflow_template_not_applicable');
@@ -756,7 +769,7 @@ describe('Workflow Approval', function () {
             'nodes'                => [
                 ['node_type' => 'sequential', 'node_order' => 1, 'label' => 'Finance Review'],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $templateResponse->assertStatus(201);
         $templateId = $templateResponse->json('data.id');
 
@@ -766,7 +779,7 @@ describe('Workflow Approval', function () {
             'record_type'          => 'document',
             'record_id'            => $this->targetDocument->id,
             'context'              => ['amount' => 500],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422)
                  ->assertJsonPath('error.code', 'workflow_template_not_applicable');

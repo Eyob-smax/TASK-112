@@ -100,7 +100,14 @@ class WorkflowService
             ]);
         }
 
-        $this->recordAudit(AuditAction::Create, $user->id, WorkflowTemplate::class, $template->id, $ipAddress);
+        $this->recordAudit(
+            AuditAction::Create,
+            $user->id,
+            WorkflowTemplate::class,
+            $template->id,
+            $ipAddress,
+            afterHash: hash('sha256', json_encode($template->toArray())),
+        );
 
         return $template->load(['nodes']);
     }
@@ -208,7 +215,14 @@ class WorkflowService
             return $instance;
         });
 
-        $this->recordAudit(AuditAction::Create, $user->id, WorkflowInstance::class, $instance->id, $ipAddress);
+        $this->recordAudit(
+            AuditAction::Create,
+            $user->id,
+            WorkflowInstance::class,
+            $instance->id,
+            $ipAddress,
+            afterHash: hash('sha256', json_encode($instance->toArray())),
+        );
 
         return $instance->load(['nodes', 'template']);
     }

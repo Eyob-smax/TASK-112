@@ -59,6 +59,8 @@ describe('Audit Event Browsing', function () {
         $event->actor_id       = $actorId;
         $event->ip_address     = $ip;
         $event->created_at     = $createdAt ?? now();
+        $event->before_hash    = hash('sha256', 'before-state-' . $action->value);
+        $event->after_hash     = hash('sha256', 'after-state-' . $action->value);
         $event->save();
         return $event;
     }

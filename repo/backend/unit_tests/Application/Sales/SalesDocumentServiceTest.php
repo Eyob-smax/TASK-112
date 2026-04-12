@@ -27,10 +27,9 @@ describe('SalesDocumentService', function () {
 
         $this->service = new SalesDocumentService($this->repo, $this->auditRepo);
 
-        $this->user     = Mockery::mock(User::class);
-        $this->user->id = Str::uuid()->toString();
-        $this->user->shouldReceive('getAttribute')->with('id')->andReturn($this->user->id)->byDefault();
-        $this->user->shouldReceive('getAttribute')->andReturn(null)->byDefault();
+        $userId = Str::uuid()->toString();
+        $this->user = Mockery::mock(User::class)->makePartial();
+        $this->user->id = $userId;
     });
 
     afterEach(fn() => Mockery::close());
@@ -41,12 +40,9 @@ describe('SalesDocumentService', function () {
 
     function makeDoc(SalesStatus $status): SalesDocument
     {
-        $doc = Mockery::mock(SalesDocument::class);
+        $doc = Mockery::mock(SalesDocument::class)->makePartial();
         $doc->id = Str::uuid()->toString();
         $doc->status = $status;
-        $doc->shouldReceive('getAttribute')->with('status')->andReturn($status);
-        $doc->shouldReceive('getAttribute')->with('id')->andReturn($doc->id);
-        $doc->shouldReceive('getAttribute')->andReturn(null)->byDefault();
         $doc->shouldReceive('update')->andReturnSelf()->byDefault();
         $doc->shouldReceive('load')->andReturnSelf()->byDefault();
         $doc->shouldReceive('fresh')->andReturnSelf()->byDefault();

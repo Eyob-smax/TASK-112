@@ -62,7 +62,7 @@ describe('Configuration Version Lifecycle', function () {
             'name'          => 'Pricing Rules 2025',
             'description'   => 'All pricing-related configuration',
             'department_id' => $this->dept->id,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201)
                  ->assertJsonPath('data.name', 'Pricing Rules 2025')
@@ -97,7 +97,7 @@ describe('Configuration Version Lifecycle', function () {
                     'description' => 'Summer coupon 10%',
                 ],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201)
                  ->assertJsonPath('data.version_number', 1)
@@ -117,11 +117,11 @@ describe('Configuration Version Lifecycle', function () {
 
         $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['slot' => 'home_hero'],
-        ])->assertStatus(201);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(201);
 
         $response = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['slot' => 'home_hero_v2'],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201)
                  ->assertJsonPath('data.version_number', 2);
@@ -142,7 +142,7 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['promo' => 'SUMMER'],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         // 5 targets out of 100 configured eligible stores → 5% → within 10% cap
@@ -152,7 +152,7 @@ describe('Configuration Version Lifecycle', function () {
             'target_type' => 'store',
             'target_ids'  => $targetIds,
             // eligible_count is NOT sent — computed server-side
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.status', RolloutStatus::Canary->value);
@@ -169,7 +169,7 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['key' => 'value'],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         // 20 user targets out of ~21 active users → ~95% → far exceeds 10% cap
@@ -180,7 +180,7 @@ describe('Configuration Version Lifecycle', function () {
             'target_type' => 'user',
             'target_ids'  => $targetIds,
             // eligible_count is NOT sent — computed server-side from active user count
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422)
                  ->assertJsonPath('error.code', 'canary_cap_exceeded');
@@ -200,13 +200,13 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['key' => 'store-rollout'],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         $response = $this->postJson("/api/v1/configuration/versions/{$versionId}/rollout", [
             'target_type' => 'store',
             'target_ids'  => [Str::uuid()->toString()],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'canary_store_count_misconfigured');
@@ -223,13 +223,13 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['key' => 'eligibility-guard'],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         $response = $this->postJson("/api/v1/configuration/versions/{$versionId}/rollout", [
             'target_type' => 'store',
             'target_ids'  => [Str::uuid()->toString()],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422)
                  ->assertJsonPath('error.code', 'validation_error')
@@ -247,7 +247,7 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['key' => 'tamper'],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         // Send 20 valid active user targets. Client tries to inflate eligible_count to 999 to bypass cap.
@@ -258,7 +258,7 @@ describe('Configuration Version Lifecycle', function () {
             'target_type'    => 'user',
             'target_ids'     => $targetIds,
             'eligible_count' => 999, // client-supplied; server must ignore this
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         // Despite inflated client-provided eligible_count, server cap is still enforced → 422
         $response->assertStatus(422)
@@ -278,7 +278,7 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['key' => 'store-positive'],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionResponse->assertStatus(201);
         $versionId = $versionResponse->json('data.id');
 
@@ -286,7 +286,7 @@ describe('Configuration Version Lifecycle', function () {
         $response = $this->postJson("/api/v1/configuration/versions/{$versionId}/rollout", [
             'target_type' => 'store',
             'target_ids'  => [Config::get('meridian.canary.store_ids')[0]],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.status', RolloutStatus::Canary->value);
@@ -303,7 +303,7 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['x' => 1],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         // Start canary with 1 store target out of server-side store_count=100 → 1% → within cap
@@ -311,10 +311,14 @@ describe('Configuration Version Lifecycle', function () {
             'target_type' => 'store',
             'target_ids'  => [$this->storeIds[0]],
             // eligible_count NOT sent — computed server-side
-        ])->assertStatus(200);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         // Attempt immediate promotion (within 24h)
-        $response = $this->postJson("/api/v1/configuration/versions/{$versionId}/promote");
+        $response = $this->postJson(
+            "/api/v1/configuration/versions/{$versionId}/promote",
+            [],
+            ['X-Idempotency-Key' => Str::uuid()->toString()]
+        );
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'canary_not_ready');
@@ -331,7 +335,7 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['y' => 2],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         // Start canary with 1 store target out of server-side store_count=100 → 1% → within cap
@@ -339,14 +343,18 @@ describe('Configuration Version Lifecycle', function () {
             'target_type' => 'store',
             'target_ids'  => [$this->storeIds[1]],
             // eligible_count NOT sent — computed server-side
-        ])->assertStatus(200);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         // Manually backdate canary_started_at to 25 hours ago so the window passes
         ConfigurationVersion::where('id', $versionId)->update([
             'canary_started_at' => now()->subHours(25),
         ]);
 
-        $response = $this->postJson("/api/v1/configuration/versions/{$versionId}/promote");
+        $response = $this->postJson(
+            "/api/v1/configuration/versions/{$versionId}/promote",
+            [],
+            ['X-Idempotency-Key' => Str::uuid()->toString()]
+        );
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.status', RolloutStatus::Promoted->value);
@@ -363,7 +371,7 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['z' => 3],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         // Start canary with 1 store target (server-side store_count=100 → 1% → within cap)
@@ -371,10 +379,14 @@ describe('Configuration Version Lifecycle', function () {
             'target_type' => 'store',
             'target_ids'  => [$this->storeIds[2]],
             // eligible_count NOT sent — computed server-side
-        ])->assertStatus(200);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         // Roll back
-        $response = $this->postJson("/api/v1/configuration/versions/{$versionId}/rollback");
+        $response = $this->postJson(
+            "/api/v1/configuration/versions/{$versionId}/rollback",
+            [],
+            ['X-Idempotency-Key' => Str::uuid()->toString()]
+        );
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.status', RolloutStatus::RolledBack->value);
@@ -391,11 +403,15 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['a' => 1],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         // Draft → rollback is not a valid transition
-        $response = $this->postJson("/api/v1/configuration/versions/{$versionId}/rollback");
+        $response = $this->postJson(
+            "/api/v1/configuration/versions/{$versionId}/rollback",
+            [],
+            ['X-Idempotency-Key' => Str::uuid()->toString()]
+        );
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'invalid_rollout_transition');
@@ -412,13 +428,13 @@ describe('Configuration Version Lifecycle', function () {
 
         $versionResponse = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
             'payload' => ['guard' => true],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $versionId = $versionResponse->json('data.id');
 
         $this->postJson("/api/v1/configuration/versions/{$versionId}/rollout", [
             'target_type' => 'store',
             'target_ids'  => [$this->storeIds[3]],
-        ])->assertStatus(200);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         $limitedUser = User::create([
             'username'      => 'config_no_rollout_perm',
@@ -497,7 +513,7 @@ describe('Configuration Version Lifecycle', function () {
 
         $response = $this->putJson("/api/v1/configuration/sets/{$set->id}", [
             'name' => 'Unauthorized Rename',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(403);
     });

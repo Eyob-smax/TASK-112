@@ -7,11 +7,16 @@ use App\Exceptions\Document\DocumentArchivedException;
 use App\Infrastructure\Security\EncryptionService;
 use App\Infrastructure\Security\FingerprintService;
 use App\Infrastructure\Security\WatermarkEventService;
+use App\Models\Department;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+
+uses(RefreshDatabase::class);
 
 /**
  * Unit tests for DocumentService.
@@ -44,47 +49,26 @@ describe('DocumentService', function () {
     });
 
     it('creates a document with draft status and owner set to the acting user', function () {
-        $user = Mockery::mock(User::class)->makePartial();
-        $user->id = 'user-uuid';
-        $user->department_id = 'dept-uuid';
-        $user->shouldReceive('hasRole')->with(['admin', 'manager', 'auditor'])->andReturn(false);
-
-        $created = Mockery::mock(Document::class)->makePartial();
-        $created->id = 'doc-uuid';
-        $created->shouldReceive('toArray')->andReturn([
-            'id'                 => 'doc-uuid',
-            'status'             => 'draft',
-            'owner_id'           => 'user-uuid',
-            'department_id'      => 'dept-uuid',
-            'access_control_scope' => 'department',
+        $dept = Department::create(['name' => 'Test Dept', 'code' => 'TDT']);
+        $user = User::create([
+            'username'      => 'doc_creator',
+            'password_hash' => Hash::make('Password1!'),
+            'display_name'  => 'Doc Creator',
+            'department_id' => $dept->id,
+            'is_active'     => true,
         ]);
-        $created->shouldReceive('load')->with(['department', 'owner'])->andReturn($created);
-
-        $capturedPayload = null;
-        Mockery::mock('alias:App\\Models\\Document')
-            ->shouldReceive('create')
-            ->once()
-            ->with(Mockery::on(function (array $payload) use (&$capturedPayload) {
-                $capturedPayload = $payload;
-                return true;
-            }))
-            ->andReturn($created);
-
-        $this->auditRepo->shouldReceive('record')->once()->andReturn(null);
 
         $result = $this->service->create($user, [
             'title'                => 'Policy Handbook',
             'document_type'        => 'policy',
-            'department_id'        => 'dept-uuid',
+            'department_id'        => $dept->id,
             'description'          => 'Baseline policy',
             'access_control_scope' => 'department',
         ], '127.0.0.1');
 
-        expect($capturedPayload['owner_id'])->toBe('user-uuid')
-            ->and($capturedPayload['status'])->toBe('draft')
-            ->and($capturedPayload['is_archived'])->toBeFalse()
-            ->and($capturedPayload['department_id'])->toBe('dept-uuid')
-            ->and($result)->toBe($created);
+        expect($result->owner_id)->toBe($user->id)
+            ->and($result->department_id)->toBe($dept->id)
+            ->and((bool) $result->is_archived)->toBeFalse();
     });
 
     it('throws DocumentArchivedException when updating an archived document', function () {
@@ -168,10 +152,12 @@ describe('DocumentService', function () {
             ->andReturn(['ciphertext' => 'ct', 'iv' => 'iv', 'key_id' => 'v1']);
 
         $capturedData = [];
+        $versionMock = Mockery::mock(DocumentVersion::class)->makePartial();
+        $versionMock->id = 'version-uuid';
         $this->docsRepo->shouldReceive('createVersion')
             ->once()
             ->with('doc-uuid', Mockery::capture($capturedData))
-            ->andReturn(Mockery::mock(DocumentVersion::class)->makePartial());
+            ->andReturn($versionMock);
 
         $this->auditRepo->shouldReceive('record')->once()->andReturn(null);
 

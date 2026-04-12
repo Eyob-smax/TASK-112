@@ -39,7 +39,7 @@ describe('Business table UUID primary key contract', function () {
 
             $type = strtolower((string) ($column->Type ?? ''));
 
-            expect($type)->toContain('char(36)', "Table '{$table}' id column must be UUID-compatible char(36)");
+            expect($type)->toContain('char(36)');
             expect(strtolower((string) ($column->Null ?? 'yes')))->toBe('no', "Table '{$table}' id must be NOT NULL");
         }
     });

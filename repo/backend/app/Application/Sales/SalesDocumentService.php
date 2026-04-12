@@ -47,9 +47,10 @@ class SalesDocumentService
 
         if (!empty($data['line_items'])) {
             $total = 0.0;
-            foreach ($data['line_items'] as $item) {
+            foreach ($data['line_items'] as $index => $item) {
                 SalesLineItem::create([
                     'sales_document_id' => $doc->id,
+                    'line_number'       => $index + 1,
                     'product_code'      => $item['product_code'],
                     'description'       => $item['description'] ?? null,
                     'quantity'          => (float) $item['quantity'],

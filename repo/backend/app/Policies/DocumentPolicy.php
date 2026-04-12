@@ -53,20 +53,20 @@ class DocumentPolicy
      */
     public function update(User $user, Document $document): bool
     {
+        // Archived check is handled by the service layer (returns 409, not 403)
         return $user->can('update documents')
-            && ($this->inSameDepartment($user, $document) || $this->hasCrossScope($user))
-            && !$document->is_archived;
+            && ($this->inSameDepartment($user, $document) || $this->hasCrossScope($user));
     }
 
     /**
-     * A user can archive a document if they have the permission, the document is in
-     * their department (or they have cross-scope access), and it isn't already archived.
+     * A user can archive a document if they have the permission and the document is in
+     * their department (or they have cross-scope access).
+     * The already-archived check is handled by the service layer (returns 409, not 403).
      */
     public function archive(User $user, Document $document): bool
     {
         return $user->can('archive documents')
-            && ($this->inSameDepartment($user, $document) || $this->hasCrossScope($user))
-            && !$document->is_archived;
+            && ($this->inSameDepartment($user, $document) || $this->hasCrossScope($user));
     }
 
     // -------------------------------------------------------------------------

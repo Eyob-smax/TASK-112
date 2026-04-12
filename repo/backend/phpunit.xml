@@ -7,20 +7,9 @@
          stopOnFailure="false"
 >
     <!--
-    |--------------------------------------------------------------------------
-    | Meridian Test Suites
-    |--------------------------------------------------------------------------
-    | Unit tests: Non-HTTP domain and application logic tests
-    |             Live in repo/backend/unit_tests/
-    |
-    | Api tests:  HTTP-level API and multi-step integration tests
-    |             Live in repo/backend/api_tests/
-    |
-    | Run all tests via: php artisan test
-    | Run unit only:     php artisan test --testsuite=Unit
-    | Run API only:      php artisan test --testsuite=Api
-    |
-    | In Docker (via run_tests.sh): docker compose exec backend php artisan test
+    Meridian test suites.
+    Unit tests live in unit_tests.
+    API tests live in api_tests.
     -->
     <testsuites>
         <testsuite name="Unit">
@@ -39,15 +28,10 @@
 
     <coverage includeUncoveredFiles="true">
         <!--
-        |----------------------------------------------------------------------
-        | Coverage Reporting
-        |----------------------------------------------------------------------
-        | HTML report: coverage/html/index.html
-        | Text summary: printed to stdout (summary only, no per-file noise)
-        |
-        | Requires Xdebug (XDEBUG_MODE=coverage) or PCOV extension.
-        | Enable via:  docker compose exec backend php artisan test --coverage
-        | Or via:      ./run_tests.sh --coverage
+        Coverage reporting.
+        HTML report: coverage/html/index.html.
+        Text summary is printed to stdout.
+        Requires Xdebug or PCOV for coverage mode.
         -->
         <report>
             <html outputDirectory="coverage/html"/>

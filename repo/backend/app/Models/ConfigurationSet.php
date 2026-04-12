@@ -21,7 +21,15 @@ class ConfigurationSet extends Model
         'description',
         'department_id',
         'created_by',
+        'is_active',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
 
     // -------------------------------------------------------------------------
     // Relations

@@ -62,7 +62,7 @@ class DepartmentController extends Controller
             'parent_id'   => ['nullable', 'uuid', 'exists:departments,id'],
         ]);
 
-        $dept = Department::create($validated);
+        $dept = Department::create(array_merge($validated, ['is_active' => true]));
 
         $this->recordAudit(
             action: AuditAction::Create,

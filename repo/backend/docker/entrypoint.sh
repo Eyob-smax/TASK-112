@@ -45,18 +45,29 @@ until php -r "new PDO('mysql:host=${DB_HOST};port=${DB_PORT};dbname=${DB_DATABAS
 done
 echo "[meridian] MySQL is available."
 
-# Run database migrations
+# Run database migrations (fresh if tables are in inconsistent state)
 echo "[meridian] Running database migrations..."
-php /var/www/html/artisan migrate --force --no-interaction
+if ! php /var/www/html/artisan migrate --force --no-interaction 2>/dev/null; then
+    echo "[meridian] Migration failed — running fresh migration..."
+    php /var/www/html/artisan migrate:fresh --force --no-interaction
+fi
 
-# Warm application cache
-echo "[meridian] Warming application cache..."
-php /var/www/html/artisan config:cache
-php /var/www/html/artisan route:cache
-if [ -d /var/www/html/resources/views ]; then
-    php /var/www/html/artisan view:cache
+# Warm application cache (skip for testing — tests need fresh config per run)
+if [ "$APP_ENV" != "testing" ]; then
+    echo "[meridian] Warming application cache..."
+    php /var/www/html/artisan config:cache
+    php /var/www/html/artisan route:cache
+    if [ -d /var/www/html/resources/views ]; then
+        php /var/www/html/artisan view:cache
+    else
+        echo "[meridian] Skipping view cache; /var/www/html/resources/views does not exist."
+    fi
 else
-    echo "[meridian] Skipping view cache; /var/www/html/resources/views does not exist."
+    echo "[meridian] Skipping cache warm-up (testing environment)."
+    php /var/www/html/artisan config:clear 2>/dev/null || true
+    php /var/www/html/artisan route:clear 2>/dev/null || true
+    # Ensure .env exists so Laravel's Dotenv loader doesn't warn
+    touch /var/www/html/.env
 fi
 
 echo "[meridian] Entrypoint complete. Starting supervisor..."

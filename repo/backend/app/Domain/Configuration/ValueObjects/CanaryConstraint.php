@@ -40,12 +40,12 @@ final class CanaryConstraint
     /**
      * Compute the maximum number of targets allowed for a canary rollout.
      *
-     * Returns at least 1 when the eligible population is non-zero so that
-     * small populations (< 10 stores/users) are not permanently blocked from
-     * canary rollout by floor(N * 0.10) == 0.
+     * Uses strict floor arithmetic: small populations where floor(N * 0.10) == 0
+     * will return 0, meaning canary rollout is not permitted until the population
+     * is large enough for at least one target (i.e., N >= 10 for the default 10% cap).
      *
      * @param int $eligibleCount Total eligible targets in the population
-     * @return int Maximum target count (at least 1 for non-empty populations)
+     * @return int Maximum target count (0 when population is too small for a 10% slice)
      */
     public static function maxTargets(int $eligibleCount): int
     {
@@ -53,7 +53,7 @@ final class CanaryConstraint
             return 0;
         }
 
-        return max(1, (int) floor($eligibleCount * (self::maxCanaryPercent() / 100)));
+        return (int) floor($eligibleCount * (self::maxCanaryPercent() / 100));
     }
 
     /**

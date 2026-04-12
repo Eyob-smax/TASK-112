@@ -4,6 +4,7 @@ use App\Models\Department;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
 /**
@@ -124,7 +125,7 @@ describe('Departments API', function () {
             'name'        => 'Logistics',
             'code'        => 'LOG',
             'description' => 'Handles all logistics operations.',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201)
                  ->assertJsonPath('data.name', 'Logistics')
@@ -138,7 +139,7 @@ describe('Departments API', function () {
         $response = $this->postJson('/api/v1/departments', [
             'name' => 'Unauthorized Dept',
             'code' => 'UNAUTH',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(403);
     });
@@ -150,7 +151,7 @@ describe('Departments API', function () {
         $response = $this->postJson('/api/v1/departments', [
             'name' => 'Another Head Office',
             'code' => 'HO',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422);
     });
@@ -164,7 +165,7 @@ describe('Departments API', function () {
 
         $response = $this->putJson("/api/v1/departments/{$this->dept->id}", [
             'name' => 'Head Office Updated',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.name', 'Head Office Updated');
@@ -175,7 +176,7 @@ describe('Departments API', function () {
 
         $response = $this->putJson("/api/v1/departments/{$this->dept->id}", [
             'name' => 'Staff Attempt Update',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(403);
     });
@@ -190,7 +191,9 @@ describe('Departments API', function () {
         // Create a separate department to deactivate (so tests are not order-dependent)
         $toDeactivate = Department::create(['name' => 'To Deactivate', 'code' => 'DEACT']);
 
-        $response = $this->deleteJson("/api/v1/departments/{$toDeactivate->id}");
+        $response = $this->deleteJson("/api/v1/departments/{$toDeactivate->id}", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
 
         $response->assertStatus(204);
 
@@ -203,7 +206,9 @@ describe('Departments API', function () {
     it('returns 403 when a non-admin user tries to deactivate a department', function () {
         Sanctum::actingAs($this->staff);
 
-        $response = $this->deleteJson("/api/v1/departments/{$this->dept->id}");
+        $response = $this->deleteJson("/api/v1/departments/{$this->dept->id}", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
 
         $response->assertStatus(403);
     });

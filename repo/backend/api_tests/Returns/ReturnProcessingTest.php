@@ -46,12 +46,12 @@ describe('Return Processing', function () {
                     'unit_price'   => 30.00,
                 ],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $createResponse->assertStatus(201);
         $docId = $createResponse->json('data.id');
 
-        $this->postJson("/api/v1/sales/{$docId}/submit")->assertStatus(200);
-        $this->postJson("/api/v1/sales/{$docId}/complete")->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$docId}/submit", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
+        $this->postJson("/api/v1/sales/{$docId}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         $this->completedDoc = SalesDocument::findOrFail($docId);
     });
@@ -67,14 +67,14 @@ describe('Return Processing', function () {
             'reason_code'   => 'changed_mind',
             'reason_detail' => 'Item did not meet expectations.',
             'return_amount' => 90.00,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(201)
                  ->assertJsonPath('data.status', 'pending');
 
-        // Default 10% restock fee
-        expect($response->json('data.restock_fee_amount'))->toBe(9.0);
-        expect($response->json('data.refund_amount'))->toBe(81.0);
+        // Default 10% restock fee (JSON may return int when value has no decimal part)
+        expect((float) $response->json('data.restock_fee_amount'))->toBe(9.0);
+        expect((float) $response->json('data.refund_amount'))->toBe(81.0);
     });
 
     it('creates a return with 0 restock fee for defective items', function () {
@@ -84,11 +84,11 @@ describe('Return Processing', function () {
             'reason_code'   => 'defective',
             'reason_detail' => 'Product arrived broken.',
             'return_amount' => 90.00,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
-        $response->assertStatus(201)
-                 ->assertJsonPath('data.restock_fee_amount', 0.0)
-                 ->assertJsonPath('data.refund_amount', 90.0);
+        $response->assertStatus(201);
+        expect((float) $response->json('data.restock_fee_amount'))->toBe(0.0);
+        expect((float) $response->json('data.refund_amount'))->toBe(90.0);
     });
 
     it('returns 422 with return_window_expired for non-defective return beyond 30 days', function () {
@@ -100,7 +100,7 @@ describe('Return Processing', function () {
         $response = $this->postJson("/api/v1/sales/{$this->completedDoc->id}/returns", [
             'reason_code'   => 'changed_mind',
             'return_amount' => 90.00,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(422)
                  ->assertJsonPath('error.code', 'return_window_expired');
@@ -113,13 +113,13 @@ describe('Return Processing', function () {
         $draftResponse = $this->postJson('/api/v1/sales', [
             'site_code'     => 'ECO1',
             'department_id' => $this->dept->id,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $draftId = $draftResponse->json('data.id');
 
         $response = $this->postJson("/api/v1/sales/{$draftId}/returns", [
             'reason_code'   => 'changed_mind',
             'return_amount' => 50.00,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'invalid_sales_transition');
@@ -140,7 +140,7 @@ describe('Return Processing', function () {
         $response = $this->postJson("/api/v1/sales/{$this->completedDoc->id}/returns", [
             'reason_code'   => 'changed_mind',
             'return_amount' => 50.00,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(403);
     });
@@ -156,12 +156,12 @@ describe('Return Processing', function () {
         $returnResponse = $this->postJson("/api/v1/sales/{$this->completedDoc->id}/returns", [
             'reason_code'   => 'wrong_item',
             'return_amount' => 90.00,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $returnResponse->assertStatus(201);
         $returnId = $returnResponse->json('data.id');
 
         // Complete the return
-        $response = $this->postJson("/api/v1/returns/{$returnId}/complete");
+        $response = $this->postJson("/api/v1/returns/{$returnId}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200)
                  ->assertJsonPath('data.status', 'completed');
@@ -187,7 +187,7 @@ describe('Return Processing', function () {
         $returnResponse = $this->postJson("/api/v1/sales/{$this->completedDoc->id}/returns", [
             'reason_code'   => 'changed_mind',
             'return_amount' => 50.00,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $returnResponse->assertStatus(201);
         $returnId = $returnResponse->json('data.id');
 
@@ -207,7 +207,7 @@ describe('Return Processing', function () {
 
         $response = $this->putJson("/api/v1/returns/{$returnId}", [
             'reason_detail' => 'Attempted unauthorized update',
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         // Has manage sales permission but wrong department → 403
         $response->assertStatus(403);
@@ -220,7 +220,7 @@ describe('Return Processing', function () {
             'reason_code'   => 'defective',
             'is_defective'  => true,
             'return_amount' => 75.00,
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $returnResponse->assertStatus(201);
         $returnId = $returnResponse->json('data.id');
 
@@ -238,7 +238,7 @@ describe('Return Processing', function () {
 
         Sanctum::actingAs($outsider);
 
-        $response = $this->postJson("/api/v1/returns/{$returnId}/complete");
+        $response = $this->postJson("/api/v1/returns/{$returnId}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         // Has manage sales permission but wrong department → 403
         $response->assertStatus(403);

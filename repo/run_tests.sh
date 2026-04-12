@@ -63,7 +63,7 @@ echo "=============================================="
 echo " Meridian Test Runner"
 echo " Working dir: ${COMPOSE_PROJECT_DIR}"
 if [ "$COVERAGE_MODE" = true ]; then
-    echo " Coverage:    ON (HTML → backend/coverage/html/)"
+    echo " Coverage:    ON (HTML -> backend/coverage/html/)"
 fi
 echo " Started at:  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=============================================="
@@ -72,38 +72,54 @@ echo "=============================================="
 cd "${COMPOSE_PROJECT_DIR}"
 
 # ---------------------------------------------------------------------------
-# Ensure test service is running
+# Always rebuild to pick up source changes (code is baked into the image)
 # ---------------------------------------------------------------------------
-if ! $COMPOSE_CMD ps --services --filter "status=running" 2>/dev/null | grep -q "^backend-test$"; then
-    echo ""
-    echo " backend-test is not running. Starting test services..."
+echo ""
+# Touch a trigger file to invalidate Docker's COPY cache (Windows/BuildKit workaround)
+echo "$(date +%s)" > backend/.build-trigger
 
-    if ! $COMPOSE_CMD up -d backend-test; then
+echo " Building backend-test image..."
+if ! $COMPOSE_CMD build backend-test; then
+    echo ""
+    echo "ERROR: Failed to build backend-test."
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Ensure test service is running with the freshly built image
+# ---------------------------------------------------------------------------
+# Stop old container so the new image is used
+$COMPOSE_CMD stop backend-test 2>/dev/null || true
+$COMPOSE_CMD rm -f backend-test 2>/dev/null || true
+
+echo ""
+echo " Starting backend-test with fresh image..."
+
+if ! $COMPOSE_CMD up -d backend-test; then
+    echo ""
+    echo "ERROR: Failed to start backend-test."
+    $COMPOSE_CMD ps || true
+    exit 1
+fi
+
+echo " Waiting for backend-test to be running..."
+ATTEMPTS=0
+MAX_ATTEMPTS=30
+until $COMPOSE_CMD ps --services --filter "status=running" 2>/dev/null | grep -q "^backend-test$"; do
+    ATTEMPTS=$((ATTEMPTS + 1))
+    if [ "$ATTEMPTS" -ge "$MAX_ATTEMPTS" ]; then
         echo ""
-        echo "ERROR: Failed to start backend-test."
+        echo "ERROR: backend-test did not reach running state in time."
         $COMPOSE_CMD ps || true
+        echo ""
+        echo "Recent backend-test logs:"
+        $COMPOSE_CMD logs --tail 40 backend-test || true
         exit 1
     fi
+    sleep 2
+done
 
-    echo " Waiting for backend-test to be running..."
-    ATTEMPTS=0
-    MAX_ATTEMPTS=30
-    until $COMPOSE_CMD ps --services --filter "status=running" 2>/dev/null | grep -q "^backend-test$"; do
-        ATTEMPTS=$((ATTEMPTS + 1))
-        if [ "$ATTEMPTS" -ge "$MAX_ATTEMPTS" ]; then
-            echo ""
-            echo "ERROR: backend-test did not reach running state in time."
-            $COMPOSE_CMD ps || true
-            echo ""
-            echo "Recent backend-test logs:"
-            $COMPOSE_CMD logs --tail 40 backend-test || true
-            exit 1
-        fi
-        sleep 2
-    done
-
-    echo " backend-test is running."
-fi
+echo " backend-test is running."
 
 UNIT_EXIT=0
 API_EXIT=0

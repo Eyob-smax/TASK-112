@@ -61,7 +61,7 @@ describe('Attachment Upload', function () {
     it('uploads a valid PDF attachment and returns 201 with attachment metadata', function () {
         Sanctum::actingAs($this->staff, ['*'], 'sanctum');
 
-        $file = UploadedFile::fake()->create('evidence.pdf', 500, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('evidence.pdf', '%PDF-1.4 fake pdf content for unit testing');
 
         $response = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",
@@ -78,8 +78,8 @@ describe('Attachment Upload', function () {
     it('uploads multiple files in a single batch request and returns 201 with an array of results', function () {
         Sanctum::actingAs($this->staff, ['*'], 'sanctum');
 
-        $file1 = UploadedFile::fake()->create('evidence1.pdf', 200, 'application/pdf');
-        $file2 = UploadedFile::fake()->create('evidence2.pdf', 300, 'application/pdf');
+        $file1 = UploadedFile::fake()->createWithContent('evidence1.pdf', '%PDF-1.4 fake pdf content for unit testing one');
+        $file2 = UploadedFile::fake()->createWithContent('evidence2.pdf', '%PDF-1.4 fake pdf content for unit testing two');
 
         $response = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",
@@ -133,7 +133,7 @@ describe('Attachment Upload', function () {
     it('returns 409 when uploading a file with identical SHA-256 fingerprint', function () {
         Sanctum::actingAs($this->staff, ['*'], 'sanctum');
 
-        $file = UploadedFile::fake()->create('report.pdf', 200, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.4 fake pdf content for duplicate test');
 
         // First upload
         $this->postJson(
@@ -143,7 +143,7 @@ describe('Attachment Upload', function () {
         )->assertStatus(201);
 
         // Second upload with same file content (same fingerprint)
-        $file2 = UploadedFile::fake()->create('report.pdf', 200, 'application/pdf');
+        $file2 = UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.4 fake pdf content for duplicate test');
 
         $response = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",
@@ -212,7 +212,7 @@ describe('Attachment Upload', function () {
             ]);
         }
 
-        $file = UploadedFile::fake()->create('overflow.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('overflow.pdf', '%PDF-1.4 fake pdf content for unit testing');
 
         $response = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",
@@ -245,8 +245,8 @@ describe('Attachment Upload', function () {
             ]);
         }
 
-        $file1 = UploadedFile::fake()->create('overflow_1.pdf', 100, 'application/pdf');
-        $file2 = UploadedFile::fake()->create('overflow_2.pdf', 100, 'application/pdf');
+        $file1 = UploadedFile::fake()->createWithContent('overflow_1.pdf', '%PDF-1.4 fake pdf content for overflow one');
+        $file2 = UploadedFile::fake()->createWithContent('overflow_2.pdf', '%PDF-1.4 fake pdf content for overflow two');
 
         $response = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",
@@ -294,7 +294,7 @@ describe('Attachment Upload', function () {
         // Upload an attachment in the Compliance department
         Sanctum::actingAs($this->staff, ['*'], 'sanctum');
 
-        $file = UploadedFile::fake()->create('evidence.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('evidence.pdf', '%PDF-1.4 fake pdf content for unit testing');
         $upload = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",
             ['files' => [$file]],
@@ -341,7 +341,7 @@ describe('Attachment Upload', function () {
         // $this->doc belongs to $this->dept (Compliance) — outsider is in Legal
         Sanctum::actingAs($outsider, ['*'], 'sanctum');
 
-        $file = UploadedFile::fake()->create('outsider.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('outsider.pdf', '%PDF-1.4 fake pdf content for unit testing');
 
         $response = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",
@@ -356,7 +356,7 @@ describe('Attachment Upload', function () {
         // Upload an attachment as the owner-department staff
         Sanctum::actingAs($this->staff, ['*'], 'sanctum');
 
-        $file = UploadedFile::fake()->create('to_delete.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('to_delete.pdf', '%PDF-1.4 fake pdf content for unit testing');
         $upload = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",
             ['files' => [$file]],
@@ -405,7 +405,7 @@ describe('Attachment Upload', function () {
         $crossManager->givePermissionTo(['upload attachments', 'download attachments', 'view documents']);
 
         Sanctum::actingAs($crossManager, ['*'], 'sanctum');
-        $file = UploadedFile::fake()->create('cross.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('cross.pdf', '%PDF-1.4 fake pdf content for unit testing');
 
         $upload = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",
@@ -432,7 +432,7 @@ describe('Attachment Upload', function () {
     it('revokes an attachment via DELETE and returns 204', function () {
         Sanctum::actingAs($this->manager, ['*'], 'sanctum');
 
-        $file = UploadedFile::fake()->create('to_revoke.pdf', 100, 'application/pdf');
+        $file = UploadedFile::fake()->createWithContent('to_revoke.pdf', '%PDF-1.4 fake pdf content for unit testing');
 
         $upload = $this->postJson(
             "/api/v1/records/document/{$this->doc->id}/attachments",

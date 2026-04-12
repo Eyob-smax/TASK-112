@@ -417,7 +417,7 @@ describe('Admin Metrics and Log Endpoints', function () {
             'nodes'      => [
                 ['node_type' => 'sequential', 'node_order' => 1, 'label' => 'Review'],
             ],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $templateResponse->assertStatus(201);
         $templateId = $templateResponse->json('data.id');
 
@@ -426,7 +426,7 @@ describe('Admin Metrics and Log Endpoints', function () {
             'record_type'          => 'document',
             'record_id'            => $this->workflowTargetDocument->id,
             'context'              => [],
-        ]);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
         $instanceResponse->assertStatus(201);
         $nodeId = $instanceResponse->json('data.nodes.0.id');
 
@@ -434,7 +434,7 @@ describe('Admin Metrics and Log Endpoints', function () {
 
         $this->postJson("/api/v1/workflow/nodes/{$nodeId}/reject", [
             'reason' => 'Test rejection for metrics instrumentation.',
-        ])->assertStatus(200);
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(200);
 
         $countAfter = MetricsSnapshot::where('metric_type', 'failed_approvals')->count();
         expect($countAfter)->toBeGreaterThan($countBefore);

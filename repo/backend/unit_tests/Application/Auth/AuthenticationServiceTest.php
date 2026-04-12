@@ -8,6 +8,7 @@ use App\Domain\Auth\ValueObjects\LockoutPolicy;
 use App\Exceptions\Auth\AccountLockedException;
 use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -18,6 +19,8 @@ use Illuminate\Support\Facades\Hash;
 describe('AuthenticationService', function () {
 
     beforeEach(function () {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
         $this->userRepo  = Mockery::mock(UserRepositoryInterface::class);
         $this->auditRepo = Mockery::mock(AuditEventRepositoryInterface::class);
 
@@ -28,6 +31,7 @@ describe('AuthenticationService', function () {
     });
 
     afterEach(function () {
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
         Mockery::close();
     });
 
@@ -117,6 +121,10 @@ describe('AuthenticationService', function () {
         $this->userRepo->shouldReceive('lockUntil')->with('uid', Mockery::type(\DateTimeImmutable::class))->once();
 
         $user->shouldReceive('refresh')->andReturn($user);
+        $user->shouldReceive('fresh')->andReturn($user);
+        $user->shouldReceive('toArray')->andReturn([
+            'id' => 'uid', 'is_active' => true, 'failed_attempt_count' => LockoutPolicy::maxAttempts(),
+        ])->byDefault();
 
         expect(fn () => $this->service->login('jdoe', 'wrong', '127.0.0.1'))
             ->toThrow(AuthenticationException::class);

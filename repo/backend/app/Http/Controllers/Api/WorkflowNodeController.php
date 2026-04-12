@@ -57,7 +57,7 @@ class WorkflowNodeController extends Controller
         $this->service->reject(
             $request->user(),
             $node,
-            $request->input('reason', ''),
+            $request->input('reason') ?? '',
             $request->ip()
         );
 
@@ -79,7 +79,7 @@ class WorkflowNodeController extends Controller
             $request->user(),
             $node,
             $targetUserId,
-            $request->input('reason', ''),
+            $request->input('reason') ?? '',
             $request->ip()
         );
 

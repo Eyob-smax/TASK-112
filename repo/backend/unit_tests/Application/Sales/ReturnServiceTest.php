@@ -28,10 +28,9 @@ describe('ReturnService', function () {
 
         $this->service = new ReturnService($this->repo, $this->auditRepo);
 
-        $this->user     = Mockery::mock(User::class);
-        $this->user->id = Str::uuid()->toString();
-        $this->user->shouldReceive('getAttribute')->with('id')->andReturn($this->user->id)->byDefault();
-        $this->user->shouldReceive('getAttribute')->andReturn(null)->byDefault();
+        $userId = Str::uuid()->toString();
+        $this->user = Mockery::mock(User::class)->makePartial();
+        $this->user->id = $userId;
     });
 
     afterEach(fn() => Mockery::close());
@@ -42,21 +41,16 @@ describe('ReturnService', function () {
 
     function makeSalesDoc(SalesStatus $status, ?int $completedDaysAgo = null): SalesDocument
     {
-        $doc = Mockery::mock(SalesDocument::class);
+        $doc = Mockery::mock(SalesDocument::class)->makePartial();
         $doc->id        = Str::uuid()->toString();
         $doc->site_code = 'STORE1';
         $doc->status    = $status;
-        $doc->shouldReceive('getAttribute')->with('status')->andReturn($status);
-        $doc->shouldReceive('getAttribute')->with('site_code')->andReturn('STORE1');
-        $doc->shouldReceive('getAttribute')->with('id')->andReturn($doc->id);
 
         $completedAt = $completedDaysAgo !== null
             ? now()->subDays($completedDaysAgo)
             : null;
 
-        $doc->shouldReceive('getAttribute')->with('completed_at')->andReturn($completedAt);
         $doc->completed_at = $completedAt;
-        $doc->shouldReceive('getAttribute')->andReturn(null)->byDefault();
         return $doc;
     }
 
@@ -153,8 +147,7 @@ describe('ReturnService', function () {
     // -------------------------------------------------------------------------
 
     it('throws InvalidSalesTransitionException when completing an already completed return', function () {
-        $return = Mockery::mock(ReturnRecord::class);
-        $return->shouldReceive('getAttribute')->with('status')->andReturn('completed');
+        $return = Mockery::mock(ReturnRecord::class)->makePartial();
         $return->status = 'completed';
 
         expect(fn() => $this->service->completeReturn($this->user, $return, '127.0.0.1'))

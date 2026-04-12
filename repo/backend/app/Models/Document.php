@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Domain\Auth\Enums\PermissionScope;
 use App\Domain\Document\Enums\DocumentStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -35,7 +34,6 @@ class Document extends Model
     {
         return [
             'status'               => DocumentStatus::class,
-            'access_control_scope' => PermissionScope::class,
             'is_archived'          => 'boolean',
             'archived_at'          => 'datetime',
         ];

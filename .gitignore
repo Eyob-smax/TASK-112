@@ -17,6 +17,6 @@ repo/backend/storage/app/backups/*
 # OS/editor noise
 .DS_Store
 Thumbs.db
-*.log
+# *.log
 .idea/
 .vscode/

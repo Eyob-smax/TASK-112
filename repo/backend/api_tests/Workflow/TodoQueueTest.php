@@ -109,7 +109,7 @@ describe('Todo Queue', function () {
 
         $item = makeTodo($this->user);
 
-        $response = $this->postJson("/api/v1/todo/{$item->id}/complete");
+        $response = $this->postJson("/api/v1/todo/{$item->id}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(200);
 
@@ -121,7 +121,7 @@ describe('Todo Queue', function () {
 
         $otherItem = makeTodo($this->other);
 
-        $response = $this->postJson("/api/v1/todo/{$otherItem->id}/complete");
+        $response = $this->postJson("/api/v1/todo/{$otherItem->id}/complete", [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
         $response->assertStatus(403);
     });
