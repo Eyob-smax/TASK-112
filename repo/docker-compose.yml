@@ -104,6 +104,9 @@ services:
       target: test
     container_name: meridian_backend_test
     restart: "no"
+    # Override supervisord CMD — tests are exec'd into the container, so we only
+    # need the entrypoint (migrations / cache clear) and a lightweight idle process.
+    command: ["sleep", "infinity"]
     environment:
       APP_NAME: "${APP_NAME:-Meridian}"
       APP_ENV: testing
