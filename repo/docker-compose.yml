@@ -48,6 +48,7 @@ services:
       APP_TIMEZONE: "${APP_TIMEZONE:-UTC}"
       APP_URL: "http://localhost:8000"
       LAN_BASE_URL: "${LAN_BASE_URL:-http://localhost:8000}"
+      LOG_CHANNEL: stderr
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: "3306"
@@ -56,6 +57,8 @@ services:
       DB_PASSWORD: "MeridianDbPass123!"
       QUEUE_CONNECTION: database
       QUEUE_FAILED_DRIVER: database-uuids
+      SESSION_DRIVER: file
+      CACHE_STORE: file
       FILESYSTEM_DISK: local
       ATTACHMENT_ENCRYPTION_KEY: "o4Wc9EhSf2lI3rQ1Wb9z4V6n8Kx0TmUy5pJd7FaQ2Hc="
       ATTACHMENT_MAX_SIZE_MB: "${ATTACHMENT_MAX_SIZE_MB:-25}"
@@ -109,6 +112,7 @@ services:
       APP_TIMEZONE: "${APP_TIMEZONE:-UTC}"
       APP_URL: "http://localhost:8000"
       LAN_BASE_URL: "${LAN_BASE_URL:-http://localhost:8000}"
+      LOG_CHANNEL: stderr
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: "3306"
@@ -117,6 +121,8 @@ services:
       DB_PASSWORD: "MeridianDbPass123!"
       QUEUE_CONNECTION: sync
       QUEUE_FAILED_DRIVER: database-uuids
+      SESSION_DRIVER: array
+      CACHE_STORE: array
       FILESYSTEM_DISK: local
       ATTACHMENT_ENCRYPTION_KEY: "o4Wc9EhSf2lI3rQ1Wb9z4V6n8Kx0TmUy5pJd7FaQ2Hc="
       ATTACHMENT_MAX_SIZE_MB: "${ATTACHMENT_MAX_SIZE_MB:-25}"

@@ -20,6 +20,16 @@ if [ -z "$ATTACHMENT_ENCRYPTION_KEY" ]; then
     echo "[meridian] WARNING: ATTACHMENT_ENCRYPTION_KEY is not set. Attachment encryption will fail."
 fi
 
+# Re-apply writable permissions after Docker volumes are mounted.
+mkdir -p \
+    /var/www/html/storage/logs \
+    /var/www/html/storage/framework/cache/data \
+    /var/www/html/storage/framework/sessions \
+    /var/www/html/storage/framework/views \
+    /var/www/html/bootstrap/cache
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+chmod -R ug+rwX /var/www/html/storage /var/www/html/bootstrap/cache
+
 # Wait for MySQL to become available
 echo "[meridian] Waiting for MySQL on ${DB_HOST}:${DB_PORT}..."
 MAX_TRIES=30
@@ -43,7 +53,11 @@ php /var/www/html/artisan migrate --force --no-interaction
 echo "[meridian] Warming application cache..."
 php /var/www/html/artisan config:cache
 php /var/www/html/artisan route:cache
-php /var/www/html/artisan view:cache
+if [ -d /var/www/html/resources/views ]; then
+    php /var/www/html/artisan view:cache
+else
+    echo "[meridian] Skipping view cache; /var/www/html/resources/views does not exist."
+fi
 
 echo "[meridian] Entrypoint complete. Starting supervisor..."
 

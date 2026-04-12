@@ -109,9 +109,10 @@ RUN composer dump-autoload --no-dev --optimize \
 # ---------------------------------------------------------------------------
 # Laravel scheduler via cron
 # ---------------------------------------------------------------------------
-RUN echo "* * * * * www-data php /var/www/html/artisan schedule:run >> /dev/null 2>&1" \
-    > /etc/cron.d/meridian-scheduler \
-    && chmod 0644 /etc/cron.d/meridian-scheduler
+# Alpine's dcron uses per-user crontabs without an explicit username column.
+RUN echo "* * * * * php /var/www/html/artisan schedule:run >> /dev/null 2>&1" \
+    > /etc/crontabs/root \
+    && chmod 0644 /etc/crontabs/root
 
 # ---------------------------------------------------------------------------
 # Supervisor configuration (manages artisan serve + queue worker + cron)

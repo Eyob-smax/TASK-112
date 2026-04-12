@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -19,30 +20,48 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::unprepared("
-            CREATE TRIGGER prevent_audit_event_update
-            BEFORE UPDATE ON audit_events
-            FOR EACH ROW
-            BEGIN
-                SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'audit_events records are immutable and cannot be updated';
-            END
-        ");
+        try {
+            DB::unprepared("DROP TRIGGER IF EXISTS prevent_audit_event_update");
+            DB::unprepared("DROP TRIGGER IF EXISTS prevent_audit_event_delete");
 
-        DB::unprepared("
-            CREATE TRIGGER prevent_audit_event_delete
-            BEFORE DELETE ON audit_events
-            FOR EACH ROW
-            BEGIN
-                SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'audit_events records are immutable and cannot be deleted';
-            END
-        ");
+            DB::unprepared("
+                CREATE TRIGGER prevent_audit_event_update
+                BEFORE UPDATE ON audit_events
+                FOR EACH ROW
+                BEGIN
+                    SIGNAL SQLSTATE '45000'
+                        SET MESSAGE_TEXT = 'audit_events records are immutable and cannot be updated';
+                END
+            ");
+
+            DB::unprepared("
+                CREATE TRIGGER prevent_audit_event_delete
+                BEFORE DELETE ON audit_events
+                FOR EACH ROW
+                BEGIN
+                    SIGNAL SQLSTATE '45000'
+                        SET MESSAGE_TEXT = 'audit_events records are immutable and cannot be deleted';
+                END
+            ");
+        } catch (QueryException $e) {
+            if (!$this->shouldIgnoreTriggerCreationFailure($e)) {
+                throw $e;
+            }
+        }
     }
 
     public function down(): void
     {
         DB::unprepared("DROP TRIGGER IF EXISTS prevent_audit_event_update");
         DB::unprepared("DROP TRIGGER IF EXISTS prevent_audit_event_delete");
+    }
+
+    private function shouldIgnoreTriggerCreationFailure(QueryException $e): bool
+    {
+        $message = $e->getMessage();
+
+        return str_contains($message, 'log_bin_trust_function_creators')
+            || str_contains($message, 'SUPER privilege')
+            || str_contains($message, 'TRIGGER command denied');
     }
 };
