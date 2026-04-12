@@ -154,6 +154,8 @@ services:
     image: mysql:8.0
     container_name: meridian_mysql
     restart: unless-stopped
+    command:
+      - --log-bin-trust-function-creators=1
     ports:
       - "3306:3306"
     environment:
