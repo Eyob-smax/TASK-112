@@ -79,6 +79,10 @@ fi
 # ---------------------------------------------------------------------------
 # Ensure test service is running with the freshly built image
 # ---------------------------------------------------------------------------
+# Stop the production backend if running — tests only need mysql + backend-test
+# and the extra PHP processes waste ~200 MB that the CI runner needs for tests.
+docker compose stop backend 2>/dev/null || true
+
 # Stop old container so the new image is used
 $COMPOSE_CMD stop backend-test 2>/dev/null || true
 $COMPOSE_CMD rm -f backend-test 2>/dev/null || true
