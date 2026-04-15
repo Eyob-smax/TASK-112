@@ -120,6 +120,20 @@ class DocumentController extends Controller
     }
 
     /**
+     * DELETE /api/v1/documents/{document}
+     *
+     * Soft-delete a document. Returns 204 No Content on success.
+     */
+    public function destroy(Request $request, Document $document): \Illuminate\Http\Response
+    {
+        $this->authorize('delete', $document);
+
+        $this->service->delete($request->user(), $document, $request->ip());
+
+        return response()->noContent();
+    }
+
+    /**
      * POST /api/v1/documents/{document}/archive
      *
      * Archive a document, freezing it to read-only.

@@ -69,6 +69,16 @@ class DocumentPolicy
             && ($this->inSameDepartment($user, $document) || $this->hasCrossScope($user));
     }
 
+    /**
+     * A user can soft-delete a document if they can archive it (same permission tier)
+     * and the document is in their department or they have cross-department scope.
+     */
+    public function delete(User $user, Document $document): bool
+    {
+        return $user->can('archive documents')
+            && ($this->inSameDepartment($user, $document) || $this->hasCrossScope($user));
+    }
+
     // -------------------------------------------------------------------------
     // Shared helpers
     // -------------------------------------------------------------------------

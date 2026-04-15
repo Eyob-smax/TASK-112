@@ -181,6 +181,18 @@ describe('Departments API', function () {
         $response->assertStatus(403);
     });
 
+    it('returns 200 when admin partially updates a department via PATCH', function () {
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->patchJson("/api/v1/departments/{$this->dept->id}", [
+            'description' => 'Patched department description',
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('data.description', 'Patched department description')
+                 ->assertJsonPath('data.name', 'Head Office');
+    });
+
     // -------------------------------------------------------------------------
     // DELETE /departments/{id}
     // -------------------------------------------------------------------------

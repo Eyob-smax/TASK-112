@@ -161,6 +161,18 @@ describe('Sales Document Lifecycle', function () {
             ->assertJsonPath('error.code', 'forbidden');
     });
 
+    it('returns 200 with sales document details on show endpoint', function () {
+        $doc = createDraftDoc($this->manager, $this->dept, 'SHOW1');
+
+        Sanctum::actingAs($this->manager);
+
+        $response = $this->getJson("/api/v1/sales/{$doc['id']}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.id', $doc['id'])
+            ->assertJsonPath('data.line_items.0.product_code', 'SKU-001');
+    });
+
     // -------------------------------------------------------------------------
     // Sensitive-field masking
     // -------------------------------------------------------------------------
@@ -380,5 +392,47 @@ describe('Sales Document Lifecycle', function () {
 
         $response->assertStatus(409)
                  ->assertJsonPath('error.code', 'workflow_instance_already_linked');
+    });
+
+    it('soft-deletes a sales document and returns 204', function () {
+        $doc = createDraftDoc($this->manager, $this->dept, 'DEL1');
+
+        Sanctum::actingAs($this->manager);
+
+        $response = $this->deleteJson("/api/v1/sales/{$doc['id']}", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
+
+        $response->assertStatus(204);
+
+        // Verify the sales document is soft-deleted in the database
+        $this->assertSoftDeleted('sales_documents', ['id' => $doc['id']]);
+    });
+
+    it('returns 404 when accessing a soft-deleted sales document', function () {
+        $doc = createDraftDoc($this->manager, $this->dept, 'DEL2');
+
+        Sanctum::actingAs($this->manager);
+
+        $this->deleteJson("/api/v1/sales/{$doc['id']}", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ])->assertStatus(204);
+
+        $response = $this->getJson("/api/v1/sales/{$doc['id']}");
+        $response->assertStatus(404);
+    });
+
+    it('returns 403 when a user from a different department tries to delete a sales document', function () {
+        $doc = createDraftDoc($this->manager, $this->dept, 'DEL3');
+
+        Sanctum::actingAs($this->outsider);
+        $this->outsider->givePermissionTo('manage sales');
+
+        $response = $this->deleteJson("/api/v1/sales/{$doc['id']}", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
+
+        // Outsider has the permission but wrong department → object-level 403
+        $response->assertStatus(403);
     });
 });

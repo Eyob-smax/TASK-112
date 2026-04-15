@@ -369,3 +369,115 @@ it('SendSlaRemindersJob does not create a second reminder when reminded_at is al
 
     expect(ToDoItem::where('type', 'sla_reminder')->count())->toBe(0);
 });
+
+// -------------------------------------------------------------------------
+// ExpireAttachmentLinksJob — consumed and revoked branches
+// -------------------------------------------------------------------------
+
+it('ExpireAttachmentLinksJob prunes consumed single-use links past the grace period and emits Delete audit', function () {
+    $dept = Department::create(['name' => 'Cons', 'code' => 'CNS']);
+    $user = User::create([
+        'username'      => 'cons_user',
+        'email'         => 'cons@example.com',
+        'password_hash' => bcrypt('pass'),
+        'display_name'  => 'Cons User',
+        'department_id' => $dept->id,
+        'is_active'     => true,
+    ]);
+    $attachment = Attachment::create([
+        'record_type'        => 'test',
+        'record_id'          => $user->id,
+        'original_filename'  => 'c.pdf',
+        'mime_type'          => 'application/pdf',
+        'encrypted_path'     => 'attachments/c.pdf',
+        'sha256_fingerprint' => hash('sha256', 'c'),
+        'file_size_bytes'    => 512,
+        'status'             => 'active',
+        'uploaded_by'        => $user->id,
+        'department_id'      => $dept->id,
+        'encryption_key_id'  => 'test-key-id',
+    ]);
+
+    // Consumed > 24h ago — should be pruned
+    $oldConsumed = AttachmentLink::create([
+        'attachment_id' => $attachment->id,
+        'token'         => 'tok-consumed-old',
+        'expires_at'    => now()->addHours(24),
+        'is_single_use' => true,
+        'consumed_at'   => now()->subHours(30),
+        'created_by'    => $user->id,
+    ]);
+    // Consumed within grace — kept
+    AttachmentLink::create([
+        'attachment_id' => $attachment->id,
+        'token'         => 'tok-consumed-recent',
+        'expires_at'    => now()->addHours(24),
+        'is_single_use' => true,
+        'consumed_at'   => now()->subHours(2),
+        'created_by'    => $user->id,
+    ]);
+
+    (new ExpireAttachmentLinksJob())->handle(
+        app(\App\Application\Logging\StructuredLogger::class),
+        app(AuditEventRepositoryInterface::class),
+    );
+
+    expect(AttachmentLink::where('token', 'tok-consumed-old')->exists())->toBeFalse();
+    expect(AttachmentLink::where('token', 'tok-consumed-recent')->exists())->toBeTrue();
+    expect(AuditEvent::where('auditable_id', $oldConsumed->id)
+        ->where('action', 'delete')->exists())->toBeTrue();
+});
+
+it('ExpireAttachmentLinksJob prunes revoked links past the grace period and emits Delete audit', function () {
+    $dept = Department::create(['name' => 'Rev', 'code' => 'REV']);
+    $user = User::create([
+        'username'      => 'rev_user',
+        'email'         => 'rev@example.com',
+        'password_hash' => bcrypt('pass'),
+        'display_name'  => 'Rev User',
+        'department_id' => $dept->id,
+        'is_active'     => true,
+    ]);
+    $attachment = Attachment::create([
+        'record_type'        => 'test',
+        'record_id'          => $user->id,
+        'original_filename'  => 'r.pdf',
+        'mime_type'          => 'application/pdf',
+        'encrypted_path'     => 'attachments/r.pdf',
+        'sha256_fingerprint' => hash('sha256', 'r'),
+        'file_size_bytes'    => 512,
+        'status'             => 'active',
+        'uploaded_by'        => $user->id,
+        'department_id'      => $dept->id,
+        'encryption_key_id'  => 'test-key-id',
+    ]);
+
+    $oldRevoked = AttachmentLink::create([
+        'attachment_id' => $attachment->id,
+        'token'         => 'tok-revoked-old',
+        'expires_at'    => now()->addHours(24),
+        'is_single_use' => false,
+        'revoked_at'    => now()->subHours(30),
+        'revoked_by'    => $user->id,
+        'created_by'    => $user->id,
+    ]);
+    AttachmentLink::create([
+        'attachment_id' => $attachment->id,
+        'token'         => 'tok-revoked-recent',
+        'expires_at'    => now()->addHours(24),
+        'is_single_use' => false,
+        'revoked_at'    => now()->subHours(2),
+        'revoked_by'    => $user->id,
+        'created_by'    => $user->id,
+    ]);
+
+    (new ExpireAttachmentLinksJob())->handle(
+        app(\App\Application\Logging\StructuredLogger::class),
+        app(AuditEventRepositoryInterface::class),
+    );
+
+    expect(AttachmentLink::where('token', 'tok-revoked-old')->exists())->toBeFalse();
+    expect(AttachmentLink::where('token', 'tok-revoked-recent')->exists())->toBeTrue();
+    expect(AuditEvent::where('auditable_id', $oldRevoked->id)
+        ->where('action', 'delete')->exists())->toBeTrue();
+});

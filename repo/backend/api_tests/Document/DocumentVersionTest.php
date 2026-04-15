@@ -121,6 +121,30 @@ describe('Document Versions', function () {
     // Version show
     // -------------------------------------------------------------------------
 
+    it('lists document versions newest-first on index endpoint', function () {
+        Sanctum::actingAs($this->manager, ['*'], 'sanctum');
+
+        $file1 = UploadedFile::fake()->create('policy_v1.pdf', 100, 'application/pdf');
+        $this->postJson(
+            "/api/v1/documents/{$this->doc->id}/versions",
+            ['file' => $file1],
+            ['X-Idempotency-Key' => Str::uuid()->toString()]
+        )->assertStatus(201);
+
+        $file2 = UploadedFile::fake()->create('policy_v2.pdf', 120, 'application/pdf');
+        $this->postJson(
+            "/api/v1/documents/{$this->doc->id}/versions",
+            ['file' => $file2],
+            ['X-Idempotency-Key' => Str::uuid()->toString()]
+        )->assertStatus(201);
+
+        $response = $this->getJson("/api/v1/documents/{$this->doc->id}/versions");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.version_number', 2)
+            ->assertJsonPath('data.1.version_number', 1);
+    });
+
     it('returns 200 with version metadata on show', function () {
         Sanctum::actingAs($this->manager, ['*'], 'sanctum');
 

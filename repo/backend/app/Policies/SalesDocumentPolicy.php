@@ -87,6 +87,16 @@ class SalesDocumentPolicy
         return $user->can('void sales');
     }
 
+    /**
+     * Can soft-delete a sales document with manage permission and department scope.
+     * Only draft or voided documents may be deleted (completed documents are permanent records).
+     */
+    public function delete(User $user, SalesDocument $document): bool
+    {
+        return $user->can('manage sales')
+            && ($this->inSameDepartment($user, $document) || $this->hasCrossScope($user));
+    }
+
     // -------------------------------------------------------------------------
     // Shared helpers
     // -------------------------------------------------------------------------
