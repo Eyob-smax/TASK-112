@@ -1,5 +1,7 @@
 # Meridian Enterprise Operations & Document Management
 
+Project type: backend
+
 A backend-only, fully offline enterprise platform for regulated back-office operations. Built with Laravel 11 + MySQL 8, deployed as a single-host Docker service.
 
 **No frontend. No external services. No internet required.**
@@ -103,19 +105,16 @@ repo/
 ## Quick Start (90 Seconds)
 
 ```bash
-# 1) Prepare environment file
-cp backend/.env.example backend/.env
-
-# 2) Start stack (preferred)
+# 1) Start stack (preferred)
 docker compose up -d
 
-# 3) Legacy equivalent command (accepted by strict audits)
+# 2) Legacy equivalent command (accepted by strict audits)
 docker-compose up -d
 
-# 4) Seed baseline roles/permissions
+# 3) Seed baseline data (roles/permissions + admin + demo users)
 docker compose exec backend php artisan db:seed
 
-# 5) Verify API is live
+# 4) Verify API is live
 curl -s http://localhost:8000/api/v1/admin/health -H 'Authorization: Bearer YOUR_TOKEN'
 ```
 
@@ -123,26 +122,23 @@ curl -s http://localhost:8000/api/v1/admin/health -H 'Authorization: Bearer YOUR
 
 ## Environment Setup
 
-`backend/.env` is the single source of truth for all environment variables. Docker Compose reads it at startup (`env_file: ./backend/.env`); Laravel reads it inside the container.
+This repository is runnable with Docker Compose defaults only; no pre-start `.env` copy or host-local key generation is required.
 
-1. Copy the environment template:
-   ```bash
-   cp backend/.env.example backend/.env
-   ```
+Optional: if you want custom values (for example LAN IP), create `backend/.env` from `backend/.env.example` and then restart the stack.
 
-2. Fill in required values in `backend/.env`:
+Useful overrides when using a custom `backend/.env`:
 
    | Variable | How to generate |
    |----------|----------------|
-   | `APP_KEY` | Run after `.env` is in place: `docker compose run --rm backend php artisan key:generate --show` |
-   | `ATTACHMENT_ENCRYPTION_KEY` | `docker compose run --rm backend php -r "echo base64_encode(random_bytes(32));"` (no local PHP required) |
-   | `DB_PASSWORD` | Choose a strong password |
-   | `MYSQL_ROOT_PASSWORD` | Choose a separate root password |
-   | `LAN_BASE_URL` | Set to the LAN IP, e.g. `http://192.168.1.100:8000` |
+  | `APP_KEY` | Optional override. A working default is already injected by Compose. |
+  | `ATTACHMENT_ENCRYPTION_KEY` | Optional override. A working default is already injected by Compose. |
+  | `DB_PASSWORD` | Optional override for DB auth. |
+  | `MYSQL_ROOT_PASSWORD` | Optional override for root auth. |
+  | `LAN_BASE_URL` | Set to the LAN IP, e.g. `http://192.168.1.100:8000` |
   | `CANARY_STORE_COUNT` | Set to the total eligible store count used for store-level canary rollout caps |
   | `CANARY_STORE_IDS` | Comma-separated UUID list of eligible store targets used to validate store rollout `target_ids`. Format: `uuid1,uuid2,uuid3` — no quotes, no spaces between items. Leave empty (`""`) to disable store-level validation. |
 
-   All other variables have safe defaults and do not need to be changed for initial deployment.
+All other variables have safe defaults and do not need to be changed for initial deployment.
 
 ---
 
@@ -164,11 +160,6 @@ docker compose exec backend php artisan migrate
 
 # Seed initial roles and permissions (required before first login)
 docker compose exec backend php artisan db:seed
-
-# ⚠️  STEP 2 REQUIRED: only the admin account is created by db:seed.
-# The other 4 demo role accounts (manager, staff, auditor, viewer) must be
-# created separately — run the tinker command in the "Demo Credentials" section
-# below before attempting to log in with those credentials.
 ```
 
 The container entrypoint also warms the config, route, and view caches automatically. There is no separate build step required after `docker compose up`.
@@ -195,6 +186,8 @@ Change the password immediately after first login via `PUT /api/v1/admin/users/{
 
 Authentication is required. Use the following role credentials for demos:
 
+All roles below are seeded automatically by `docker compose exec backend php artisan db:seed`.
+
 | Role | Username | Email | Password |
 |------|----------|-------|----------|
 | admin | `admin` | `admin@meridian.local` | `Admin@Meridian1!` |
@@ -202,28 +195,6 @@ Authentication is required. Use the following role credentials for demos:
 | staff | `demo_staff` | `staff@meridian.local` | `Staff@Meridian1!` |
 | auditor | `demo_auditor` | `auditor@meridian.local` | `Auditor@Meridian1!` |
 | viewer | `demo_viewer` | `viewer@meridian.local` | `Viewer@Meridian1!` |
-
-`admin` is seeded by default. Create the remaining demo users after first login:
-
-```bash
-docker compose exec backend php artisan tinker --execute="
-\$d=\App\Models\Department::firstOrCreate(['code'=>'DEM'],['name'=>'Demo']);
-\$make=function(\$u,\$e,\$n,\$r,\$p) use (\$d){
-  \$x=\App\Models\User::firstOrCreate(['username'=>\$u],[
-    'email'=>\$e,
-    'display_name'=>\$n,
-    'password_hash'=>\Illuminate\Support\Facades\Hash::make(\$p),
-    'department_id'=>\$d->id,
-    'is_active'=>true,
-  ]);
-  if(!\$x->hasRole(\$r)){\$x->assignRole(\$r);} 
-};
-\$make('demo_manager','manager@meridian.local','Demo Manager','manager','Manager@Meridian1!');
-\$make('demo_staff','staff@meridian.local','Demo Staff','staff','Staff@Meridian1!');
-\$make('demo_auditor','auditor@meridian.local','Demo Auditor','auditor','Auditor@Meridian1!');
-\$make('demo_viewer','viewer@meridian.local','Demo Viewer','viewer','Viewer@Meridian1!');
-"
-```
 
 ### Verifying the System
 
