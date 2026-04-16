@@ -145,7 +145,17 @@ class AuthenticationService
      */
     public function logout(User $user, string $ipAddress): void
     {
-        $user->currentAccessToken()->delete();
+        $token = $user->currentAccessToken();
+
+        if ($token !== null) {
+            $token->delete();
+        } else {
+            $this->revokeBearerTokenFallback($user);
+        }
+
+        // RequestGuard instances can keep an in-memory user reference in feature tests.
+        // Clear it so subsequent requests must re-authenticate against the token store.
+        auth('sanctum')->forgetUser();
 
         $this->recordAudit(
             action: AuditAction::Logout,
@@ -198,5 +208,24 @@ class AuthenticationService
             payload:        $payload,
             ipAddress:      $ip,
         );
+    }
+
+    private function revokeBearerTokenFallback(User $user): void
+    {
+        $bearer = request()->bearerToken();
+
+        if (!is_string($bearer) || $bearer === '') {
+            return;
+        }
+
+        if (str_contains($bearer, '|')) {
+            [$id] = explode('|', $bearer, 2);
+            if (ctype_digit($id)) {
+                $user->tokens()->whereKey((int) $id)->delete();
+                return;
+            }
+        }
+
+        $user->tokens()->where('token', hash('sha256', $bearer))->delete();
     }
 }

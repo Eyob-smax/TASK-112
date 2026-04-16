@@ -72,6 +72,33 @@ cleanup() {
     [ -n "$API_LOG" ] && [ -f "$API_LOG" ] && rm -f "$API_LOG"
 }
 
+start_backend_test_with_retry() {
+    local max_attempts=3
+    local attempt=1
+    local up_output
+
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if up_output="$($COMPOSE_CMD up -d backend-test 2>&1)"; then
+            echo "$up_output"
+            return 0
+        fi
+
+        echo "$up_output"
+        echo ""
+        echo "WARN: backend-test start attempt ${attempt}/${max_attempts} failed."
+
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            echo " Cleaning up stale backend-test container and retrying..."
+            $COMPOSE_CMD rm -f backend-test >/dev/null 2>&1 || true
+            sleep 2
+        fi
+
+        attempt=$((attempt + 1))
+    done
+
+    return 1
+}
+
 trap cleanup EXIT
 
 print_coverage_summary() {
@@ -127,7 +154,7 @@ $COMPOSE_CMD rm -f backend-test 2>/dev/null || true
 echo ""
 echo " Starting backend-test with fresh image..."
 
-if ! $COMPOSE_CMD up -d backend-test; then
+if ! start_backend_test_with_retry; then
     echo ""
     echo "ERROR: Failed to start backend-test."
     $COMPOSE_CMD ps || true
