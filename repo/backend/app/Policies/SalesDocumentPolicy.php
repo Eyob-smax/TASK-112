@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Domain\Sales\Enums\SalesStatus;
 use App\Models\SalesDocument;
 use App\Models\User;
 
@@ -52,14 +53,18 @@ class SalesDocumentPolicy
     }
 
     /**
-     * Can update only if: has manage permission, document is in the user's department
-     * (or user has cross-department scope), and document is still editable.
+     * Can update only if: has manage permission and document is in the user's
+     * department (or user has cross-department scope).
+     *
+     * Terminal-state transition enforcement is handled by the application service,
+     * but policy blocks clearly terminal documents to keep authorization responses
+     * consistent for completed/voided records.
      */
     public function update(User $user, SalesDocument $document): bool
     {
         return $user->can('manage sales')
             && ($this->inSameDepartment($user, $document) || $this->hasCrossScope($user))
-            && $document->status->isEditable();
+            && $this->isUpdateAllowedByStatus($document);
     }
 
     /**
@@ -110,5 +115,20 @@ class SalesDocumentPolicy
     protected function hasCrossScope(User $user): bool
     {
         return $user->hasRole(['manager', 'auditor']);
+    }
+
+    protected function isUpdateAllowedByStatus(SalesDocument $document): bool
+    {
+        $status = $document->status;
+
+        if (is_string($status)) {
+            $status = SalesStatus::tryFrom($status);
+        }
+
+        if (!$status instanceof SalesStatus) {
+            return false;
+        }
+
+        return !in_array($status, [SalesStatus::Completed, SalesStatus::Voided], true);
     }
 }
