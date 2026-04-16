@@ -419,6 +419,31 @@ describe('Workflow Approval', function () {
         $response->assertStatus(403);
     });
 
+    it('returns 200 with node shape on direct GET /workflow/nodes/{node}', function () {
+        $template = createTemplate($this->manager, $this->dept);
+        $instance = startInstance($this->manager, $template['id'], $this->targetDocument->id);
+
+        $nodeId = $instance['nodes'][0]['id'];
+
+        Sanctum::actingAs($this->manager);
+
+        $response = $this->getJson("/api/v1/workflow/nodes/{$nodeId}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.id', $nodeId)
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'workflow_instance_id',
+                    'node_type',
+                    'node_order',
+                    'status',
+                    'label',
+                    'assigned_to',
+                ],
+            ]);
+    });
+
     it('returns 403 when a user without view workflow permission tries to view a node', function () {
         $template = createTemplate($this->manager, $this->dept);
         $instance = startInstance($this->manager, $template['id'], $this->targetDocument->id);

@@ -1,6 +1,6 @@
 # Meridian Enterprise Operations & Document Management — API Specification
 
-**Version:** 7.0 (Prompts 5/6/7 — Configuration, Workflow, Sales, Returns, Operational Resilience)
+**Version:** 8.0 (Prompts 5/6/7 plus Prompt 8 test-suite hardening)
 **Base URL:** `http://{LAN_HOST}:8000/api/v1`
 **Protocol:** HTTP/1.1 (LAN-internal only — no TLS required within trusted LAN)
 **Auth:** Laravel Sanctum Bearer token

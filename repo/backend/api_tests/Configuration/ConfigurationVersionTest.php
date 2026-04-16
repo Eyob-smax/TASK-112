@@ -127,6 +127,66 @@ describe('Configuration Version Lifecycle', function () {
                  ->assertJsonPath('data.version_number', 2);
     });
 
+    it('lists versions for a configuration set with newest version first', function () {
+        Sanctum::actingAs($this->manager);
+
+        $set = ConfigurationSet::create([
+            'name'          => 'Version Listing Set',
+            'department_id' => $this->dept->id,
+            'created_by'    => $this->manager->id,
+            'is_active'     => true,
+        ]);
+
+        $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
+            'payload' => ['version' => 1],
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(201);
+
+        $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
+            'payload' => ['version' => 2],
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()])->assertStatus(201);
+
+        $response = $this->getJson("/api/v1/configuration/sets/{$set->id}/versions");
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('data.0.version_number', 2)
+                 ->assertJsonPath('data.1.version_number', 1);
+    });
+
+    it('returns configuration version details on show endpoint', function () {
+        Sanctum::actingAs($this->manager);
+
+        $set = ConfigurationSet::create([
+            'name'          => 'Version Show Set',
+            'department_id' => $this->dept->id,
+            'created_by'    => $this->manager->id,
+            'is_active'     => true,
+        ]);
+
+        $create = $this->postJson("/api/v1/configuration/sets/{$set->id}/versions", [
+            'payload'        => ['flag' => true],
+            'change_summary' => 'show details',
+            'rules'          => [
+                [
+                    'rule_type'   => 'promotion',
+                    'rule_key'    => 'AUTO_APPLY',
+                    'rule_value'  => ['enabled' => true],
+                    'is_active'   => true,
+                    'priority'    => 1,
+                    'description' => 'Apply automatically',
+                ],
+            ],
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
+
+        $create->assertStatus(201);
+        $versionId = $create->json('data.id');
+
+        $response = $this->getJson("/api/v1/configuration/versions/{$versionId}");
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('data.id', $versionId)
+                 ->assertJsonPath('data.rules.0.rule_key', 'AUTO_APPLY');
+    });
+
     // -------------------------------------------------------------------------
     // Canary Rollout
     // -------------------------------------------------------------------------

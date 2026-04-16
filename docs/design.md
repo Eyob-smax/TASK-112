@@ -1,6 +1,6 @@
 # Meridian Enterprise Operations & Document Management — System Design
 
-**Version:** 7.0 (Prompts 5/6/7 — Configuration, Workflow, Sales, Returns, Operational Resilience)
+**Version:** 8.0 (Prompts 5/6/7 plus Prompt 8 test-suite hardening)
 **Stack:** PHP 8.3 · Laravel 11 · MySQL 8 · Docker (single-host)
 **Mode:** Fully offline — no external dependencies
 

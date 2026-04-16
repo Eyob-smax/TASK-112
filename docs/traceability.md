@@ -74,6 +74,7 @@
 | 409 on upload to archived document | `DocumentVersionController` → `DocumentArchivedException` | — | `api_tests/Document/DocumentVersionTest.php` | 🔵 |
 | 409 on update to archived document | `DocumentService::update()` | — | `api_tests/Document/DocumentCrudTest.php` | 🔵 |
 | Versioned uploads (version_number auto-increment) | `DocumentService::uploadVersion()` | `unit_tests/Application/Document/DocumentServiceTest.php` | `api_tests/Document/DocumentVersionTest.php` | ✅ |
+| List document versions (`GET /documents/{id}/versions`) | `DocumentVersionController::index()` | — | `api_tests/Document/DocumentVersionTest.php` | 🔵 |
 | Previous version becomes 'superseded' on new upload | `DocumentService::uploadVersion()` | `unit_tests/Application/Document/DocumentServiceTest.php` | `api_tests/Document/DocumentVersionTest.php` | ✅ |
 | Controlled download with watermark recording | `DocumentVersionController::download()`, `WatermarkEventService` | — | `api_tests/Document/DocumentVersionTest.php` | 🔵 |
 | Download audit record created on each download | `DocumentDownloadRecord` | — | `api_tests/Document/DocumentVersionTest.php` | 🔵 |
@@ -117,8 +118,10 @@
 
 | Requirement | Implementing Class | Unit Test | API Test | Status |
 |------------|-------------------|-----------|----------|--------|
-| Configuration set CRUD | `ConfigurationService::createSet()` | `unit_tests/Application/Configuration/ConfigurationServiceTest.php` | `api_tests/Configuration/ConfigurationVersionTest.php` | ✅ |
+| Configuration set CRUD | `ConfigurationService::createSet()` | `unit_tests/Application/Configuration/ConfigurationServiceTest.php` | `api_tests/Configuration/ConfigurationVersionTest.php`, `api_tests/Configuration/ConfigurationSetCrudTest.php` | ✅ |
 | Config version auto-increment | `EloquentConfigurationRepository::createVersion()` | `unit_tests/Application/Configuration/ConfigurationServiceTest.php` | `api_tests/Configuration/ConfigurationVersionTest.php` | ✅ |
+| Config set version listing (`GET /configuration/sets/{set}/versions`) | `ConfigurationVersionController::index()` | — | `api_tests/Configuration/ConfigurationVersionTest.php` | 🔵 |
+| Config version show (`GET /configuration/versions/{version}`) | `ConfigurationVersionController::show()` | — | `api_tests/Configuration/ConfigurationVersionTest.php` | 🔵 |
 | Canary rollout: 10% cap enforced | `CanaryConstraint::maxTargets()` | `unit_tests/Domain/Configuration/CanaryConstraintTest.php`, `unit_tests/Application/Configuration/ConfigurationServiceTest.php` | `api_tests/Configuration/ConfigurationVersionTest.php` | ✅ |
 | 422 canary_cap_exceeded when > 10% | `ConfigurationService::startCanaryRollout()` → `CanaryCapExceededException` | `unit_tests/Application/Configuration/ConfigurationServiceTest.php` | `api_tests/Configuration/ConfigurationVersionTest.php` | ✅ |
 | 24h minimum before promotion | `CanaryConstraint::canPromote()` | `unit_tests/Domain/Configuration/CanaryConstraintTest.php` | `api_tests/Configuration/ConfigurationVersionTest.php` | ✅ |
@@ -154,6 +157,7 @@
 | To-do queue created for assigned users | `TodoService::create()` | `unit_tests/Application/Workflow/WorkflowServiceTest.php` | `api_tests/Workflow/TodoQueueTest.php` | ✅ |
 | SLA reminder to-do for overdue nodes | `SendSlaRemindersJob` | `unit_tests/Infrastructure/Maintenance/MaintenanceJobsTest.php` | — | 🟡 |
 | No duplicate SLA reminder when reminded_at set | `SendSlaRemindersJob` | `unit_tests/Infrastructure/Maintenance/MaintenanceJobsTest.php` | — | 🟡 |
+| Workflow template update/destroy CRUD paths | `WorkflowTemplateController` | — | `api_tests/Workflow/WorkflowTemplateCrudTest.php` | 🔵 |
 | To-do queue: list, filter, complete | `TodoController` | — | `api_tests/Workflow/TodoQueueTest.php` | 🔵 |
 
 ---
@@ -168,8 +172,10 @@
 | Requirement | Implementing Class | Unit Test | API Test | Status |
 |------------|-------------------|-----------|----------|--------|
 | Date-prefixed sequential document number | `DocumentNumberFormat::format()`, `EloquentSalesRepository::nextDocumentNumber()` | `unit_tests/Application/Sales/SalesDocumentServiceTest.php`, `unit_tests/Domain/Sales/DocumentNumberTest.php` | `api_tests/Sales/SalesDocumentLifecycleTest.php` | ✅ |
+| Sales show (`GET /sales/{document}`) | `SalesDocumentController::show()` | — | `api_tests/Sales/SalesDocumentLifecycleTest.php` | 🔵 |
 | Per-site-per-day sequence reset | `DocumentNumberSequence` model + lockForUpdate | `unit_tests/Application/Sales/SalesDocumentServiceTest.php` | `api_tests/Sales/SalesDocumentLifecycleTest.php` | ✅ |
 | State machine: draft → reviewed | `SalesDocumentService::submit()` | `unit_tests/Application/Sales/SalesDocumentServiceTest.php` | `api_tests/Sales/SalesDocumentLifecycleTest.php` | ✅ |
+| Sales update endpoint (line replacement, validation, transition guards) | `SalesDocumentService::update()`, `UpdateSalesDocumentRequest` | — | `api_tests/Sales/SalesDocumentUpdateTest.php` | 🔵 |
 | State machine: reviewed → completed | `SalesDocumentService::complete()` | `unit_tests/Application/Sales/SalesDocumentServiceTest.php` | `api_tests/Sales/SalesDocumentLifecycleTest.php` | ✅ |
 | State machine: → voided | `SalesDocumentService::void()` | `unit_tests/Application/Sales/SalesDocumentServiceTest.php` | `api_tests/Sales/SalesDocumentLifecycleTest.php` | ✅ |
 | 409 invalid_sales_transition on illegal transition | `InvalidSalesTransitionException` | `unit_tests/Application/Sales/SalesDocumentServiceTest.php` | `api_tests/Sales/SalesDocumentLifecycleTest.php` | ✅ |
@@ -178,6 +184,7 @@
 | 409 outbound_linkage_not_allowed | `OutboundLinkageNotAllowedException` | `unit_tests/Application/Sales/SalesDocumentServiceTest.php` | `api_tests/Sales/SalesDocumentLifecycleTest.php` | ✅ |
 | Return only on completed sales | `ReturnService::createReturn()` | `unit_tests/Application/Sales/ReturnServiceTest.php` | `api_tests/Returns/ReturnProcessingTest.php` | ✅ |
 | Explicit exchange API endpoints | `ReturnController::storeExchange()`, `ReturnController::indexExchanges()`, `ReturnController::completeExchange()` | — | `api_tests/Returns/ExchangeProcessingTest.php` | ✅ |
+| Return CRUD read/update coverage (index/show/update/exchange listing) | `ReturnController` | — | `api_tests/Returns/ReturnCrudTest.php` | 🔵 |
 | Return creation requires manage-sales privilege | `SalesDocumentPolicy::createReturn()` | — | `api_tests/Returns/ReturnProcessingTest.php` | ✅ |
 | 10% restock fee default (non-defective) | `RestockFeePolicy::calculateFee()` | `unit_tests/Domain/Sales/RestockFeePolicyTest.php`, `unit_tests/Application/Sales/ReturnServiceTest.php` | `api_tests/Returns/ReturnProcessingTest.php` | ✅ |
 | 0% restock fee for defective | `RestockFeePolicy` + `ReturnReasonCode::isDefective()` | `unit_tests/Application/Sales/ReturnServiceTest.php` | `api_tests/Returns/ReturnProcessingTest.php` | ✅ |
@@ -196,12 +203,13 @@
 | Requirement | Implementing Class | Unit Test | API Test | Status |
 |------------|-------------------|-----------|----------|--------|
 | Daily backup orchestration (02:00) | `RunBackupJob` + `routes/console.php` | — | — | ⚠️ schedule verified in console.php only |
-| Backup manifest (table counts + attachments) | `RunBackupJob::buildManifest()` | — | — | ⚠️ not independently unit-tested (shell execution deferred) |
+| Backup manifest (table counts + attachments) | `RunBackupJob::buildManifest()` | `unit_tests/Infrastructure/Backup/RunBackupJobTest.php` | — | ✅ |
 | 14-day backup retention | `BackupMetadataService::pruneExpired()`, `PruneBackupsJob` | `unit_tests/Application/Backup/BackupMetadataServiceTest.php`, `unit_tests/Infrastructure/Maintenance/MaintenanceJobsTest.php` | `api_tests/Admin/AdminBackupTest.php` | ✅ |
 | GET /admin/backups — backup history | `BackupController::index()` | — | `api_tests/Admin/AdminBackupTest.php` | 🔵 |
 | POST /admin/backups — manual backup trigger | `BackupController::store()` | — | `api_tests/Admin/AdminBackupTest.php` | 🔵 |
 | 90-day log retention | `StructuredLogger::prune()`, `PruneRetentionJob` | `unit_tests/Application/Logging/StructuredLoggerAuditTest.php`, `unit_tests/Infrastructure/Maintenance/MaintenanceJobsTest.php` | — | ✅ |
 | 90-day metrics retention | `MetricsRetentionService::pruneExpired()`, `PruneRetentionJob` | `unit_tests/Application/Metrics/MetricsRetentionServiceTest.php`, `unit_tests/Infrastructure/Maintenance/MaintenanceJobsTest.php` | `api_tests/Admin/AdminMetricsTest.php` | ✅ |
+| Queue depth metric snapshot job | `RecordQueueDepthJob` | `unit_tests/Infrastructure/Metrics/RecordQueueDepthJobTest.php` | — | 🟡 |
 | Technical persistence writes emit audit events (log/metrics/idempotency) | `StructuredLogger`, `MetricsRetentionService`, `IdempotencyService` | `unit_tests/Application/Logging/StructuredLoggerAuditTest.php`, `unit_tests/Application/Metrics/MetricsRetentionServiceTest.php`, `unit_tests/Application/Idempotency/IdempotencyPersistenceAuditTest.php` | — | ✅ |
 | Sensitive field redaction in logs | `StructuredLogger::sanitize()` | `unit_tests/Application/Logging/StructuredLoggerTest.php` | — | 🟡 |
 | GET /admin/metrics — metrics snapshots | `MetricsController::index()` | — | `api_tests/Admin/AdminMetricsTest.php` | 🔵 |
@@ -244,24 +252,17 @@
 
 ## Coverage Summary
 
-| Prompt | Requirements | Fully ✅ | API-only 🔵 | Unit-only 🟡 | Partial ⚠️ |
-|--------|-------------|---------|------------|-------------|-----------|
-| P1 — Auth | 15 | 8 | 7 | 0 | 0 |
-| P2 — Documents | 11 | 4 | 7 | 0 | 0 |
-| P3 — Attachments | 15 | 10 | 5 | 0 | 0 |
-| P4 — Configuration | 11 | 8 | 2 | 0 | 1 |
-| P5 — Workflow | 15 | 9 | 2 | 4 | 0 |
-| P6 — Sales/Returns | 15 | 15 | 0 | 0 | 0 |
-| P7 — Resilience | 23 | 5 | 13 | 4 | 3 (backup manifest, ExpireAttachmentsJob, locked-accounts API) |
-| Cross-cutting | 13 | 4 | 5 | 4 | 1 |
-| **Total** | **118** | **63** | **41** | **12** | **6** |
+Coverage status in this document is maintained at the requirement-row level above.
 
-**Overall coverage:** ~95% of requirements have at least one targeted test. The 5 partial/gap areas are:
-1. Purchase limits in configuration rules — tested only via version creation
-2. Backup manifest (table counts + file inventory) — shell execution deferred to Docker layer
-3. ExpireAttachmentsJob — job exists; AttachmentService tested; no end-to-end expiry API test
-4. Framework-internal integer PK exceptions remain by design (e.g., queue internals, Sanctum row id), while prompt-listed business table keys are enforced as UUID-compatible
-5. `RunBackupJob` schedule — verified via routes/console.php code inspection; not execute-tested
+Recent additions reflected in this revision:
+1. Configuration set CRUD API coverage (`ConfigurationSetCrudTest`)
+2. Workflow template CRUD API coverage (`WorkflowTemplateCrudTest`)
+3. Sales update API coverage (`SalesDocumentUpdateTest`)
+4. Return CRUD and exchange listing API coverage (`ReturnCrudTest`)
+5. Backup manifest execution-path unit coverage (`RunBackupJobTest`)
+6. Queue-depth metric snapshot coverage (`RecordQueueDepthJobTest`)
+
+Known residual gaps remain those explicitly marked with ⚠️ in the requirement tables.
 
 Note: FailedLoginAttempt record creation was previously a gap (AuthenticationService was not populating the table). This was fixed in Prompt 10: `AuthenticationService::recordFailedAttempt()` now creates a record for every auth failure path, verified by `api_tests/Auth/LockoutProgressionTest.php`.
 
@@ -291,11 +292,14 @@ Note: FailedLoginAttempt record creation was previously a gap (AuthenticationSer
 | `Domain/Auth/LockoutPolicyTest.php` | 5-attempt threshold, 15-min window |
 | `Domain/Auth/PasswordPolicyTest.php` | Length, complexity |
 | `Domain/Configuration/CanaryConstraintTest.php` | 10% cap, 24h promotion |
+| `Domain/Enums/EnumHelpersTest.php` | Enum helper predicates and transition matrices across domains |
 | `Domain/Sales/DocumentNumberTest.php` | SITE-YYYYMMDD-NNNNNN format |
 | `Domain/Sales/RestockFeePolicyTest.php` | Fee calculation, qualifying window |
 | `Domain/Workflow/SlaCalculationTest.php` | Business-day SLA calculation |
+| `Infrastructure/Backup/RunBackupJobTest.php` | Backup execution path, manifest, artifact persistence, audit |
 | `Infrastructure/Config/MeridianConfigLoadingTest.php` | Config defaults, all critical keys |
 | `Infrastructure/Maintenance/MaintenanceJobsTest.php` | All 5 scheduled jobs side-effects |
+| `Infrastructure/Metrics/RecordQueueDepthJobTest.php` | Queue depth snapshot metric capture |
 | `Infrastructure/Security/EncryptionServiceTest.php` | AES-256-CBC roundtrip, key validation |
 | `Infrastructure/Security/ExpiryEvaluatorTest.php` | Link/attachment expiry states |
 | `Infrastructure/Security/FingerprintServiceTest.php` | SHA-256 fingerprint determinism |
@@ -315,6 +319,7 @@ Note: FailedLoginAttempt record creation was previously a gap (AuthenticationSer
 | `Auth/MeTest.php` | Authenticated user profile |
 | `Authorization/PolicyEnforcementTest.php` | RBAC: 403, 401 enforcement |
 | `Configuration/ConfigurationVersionTest.php` | Set/version CRUD, canary rollout lifecycle |
+| `Configuration/ConfigurationSetCrudTest.php` | Configuration set index/show/update/destroy paths |
 | `Contract/ErrorEnvelopeTest.php` | Error format, no stack trace |
 | `Contract/IdempotencyHeaderTest.php` | Route registration, API prefix |
 | `Contract/ValidationErrorTest.php` | 422 format and field details |
@@ -322,6 +327,9 @@ Note: FailedLoginAttempt record creation was previously a gap (AuthenticationSer
 | `Document/DocumentVersionTest.php` | Version upload, superseded, download |
 | `Idempotency/IdempotencyKeyTest.php` | Header enforcement, replay |
 | `Returns/ReturnProcessingTest.php` | Return creation, window, restock fee, completion |
+| `Returns/ReturnCrudTest.php` | Return and exchange listing/show/update/complete-exchange guards |
 | `Sales/SalesDocumentLifecycleTest.php` | Full state machine, numbering, outbound |
+| `Sales/SalesDocumentUpdateTest.php` | Sales update endpoint validation and transition behavior |
 | `Workflow/TodoQueueTest.php` | To-do listing, filtering, completion |
 | `Workflow/WorkflowApprovalTest.php` | Template, instance, approve/reject/reassign/add/withdraw |
+| `Workflow/WorkflowTemplateCrudTest.php` | Workflow template index/update/destroy authorization and filters |

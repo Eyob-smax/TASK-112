@@ -6,7 +6,6 @@ use App\Models\Department;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -111,14 +110,23 @@ describe('Admin Backup Endpoints', function () {
     // POST /admin/backups (manual trigger)
     // -------------------------------------------------------------------------
 
-    it('returns 202 when admin triggers a manual backup', function () {
-        Queue::fake();
+    it('returns 202 when admin triggers a manual backup and job runs to completion', function () {
+        Storage::fake('local');
+        putenv('ATTACHMENT_ENCRYPTION_KEY=' . base64_encode(random_bytes(32)));
+        config(['queue.default' => 'sync']);
 
         Sanctum::actingAs($this->admin);
         $response = $this->postJson('/api/v1/admin/backups', [], ['X-Idempotency-Key' => Str::uuid()->toString()]);
 
-        $response->assertStatus(202);
-        Queue::assertPushed(\App\Jobs\RunBackupJob::class);
+        $response->assertStatus(202)
+            ->assertJsonPath('data.is_manual', true);
+
+        // With sync queue the job executes in-process before the response — verify completion
+        $jobId = $response->json('data.id');
+        $job   = BackupJob::find($jobId);
+        expect($job->status)->toBe('success')
+            ->and($job->is_manual)->toBeTrue()
+            ->and($job->completed_at)->not->toBeNull();
     });
 
     it('returns 403 for non-admin when triggering manual backup', function () {

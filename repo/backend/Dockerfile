@@ -146,6 +146,15 @@ RUN echo "opcache.enable=0" > /usr/local/etc/php/conf.d/zz-test-overrides.ini \
     && echo "opcache.enable_cli=0" >> /usr/local/etc/php/conf.d/zz-test-overrides.ini \
     && echo "memory_limit=512M" >> /usr/local/etc/php/conf.d/zz-test-overrides.ini
 
+# Enable PCOV for coverage output in test runs.
+RUN apk add --no-cache $PHPIZE_DEPS \
+    && pecl install pcov \
+    && docker-php-ext-enable pcov \
+    && echo "pcov.enabled=1" >> /usr/local/etc/php/conf.d/zz-test-overrides.ini \
+    && echo "pcov.directory=/var/www/html/app" >> /usr/local/etc/php/conf.d/zz-test-overrides.ini \
+    && echo "pcov.exclude=\"~vendor~\"" >> /usr/local/etc/php/conf.d/zz-test-overrides.ini \
+    && apk del $PHPIZE_DEPS
+
 RUN composer install \
     --no-interaction \
     --prefer-dist \

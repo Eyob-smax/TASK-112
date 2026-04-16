@@ -23,6 +23,8 @@ export COMPOSE_IGNORE_ORPHANS=True
 COVERAGE_FLAG=""
 COVERAGE_MODE=false
 SKIP_BUILD=false
+UNIT_LOG=""
+API_LOG=""
 
 for arg in "$@"; do
     case $arg in
@@ -52,10 +54,45 @@ echo "=============================================="
 echo " Meridian Test Runner"
 echo " Working dir: ${COMPOSE_PROJECT_DIR}"
 if [ "$COVERAGE_MODE" = true ]; then
-    echo " Coverage:    ON (HTML -> backend/coverage/html/)"
+    echo " Coverage:    ON"
+else
+    echo " Coverage:    OFF"
 fi
 echo " Started at:  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=============================================="
+
+if [ "$COVERAGE_MODE" = true ]; then
+    set -o pipefail
+    UNIT_LOG="$(mktemp)"
+    API_LOG="$(mktemp)"
+fi
+
+cleanup() {
+    [ -n "$UNIT_LOG" ] && [ -f "$UNIT_LOG" ] && rm -f "$UNIT_LOG"
+    [ -n "$API_LOG" ] && [ -f "$API_LOG" ] && rm -f "$API_LOG"
+}
+
+trap cleanup EXIT
+
+print_coverage_summary() {
+    local suite_name="$1"
+    local log_file="$2"
+
+    [ -f "$log_file" ] || return
+
+    local coverage_lines
+    coverage_lines="$(grep -E "^[[:space:]]*(Lines|Functions|Methods|Classes|Traits):[[:space:]]+[0-9]+(\.[0-9]+)?%" "$log_file" | sed -E 's/^[[:space:]]*//')"
+
+    echo ""
+    echo " Coverage (${suite_name}):"
+    if [ -n "$coverage_lines" ]; then
+        while IFS= read -r line; do
+            echo "  - ${line}"
+        done <<< "$coverage_lines"
+    else
+        echo "  - unavailable (no coverage driver or summary not emitted)"
+    fi
+}
 
 # Ensure we're running from the repo/ directory
 cd "${COMPOSE_PROJECT_DIR}"
@@ -116,6 +153,24 @@ done
 
 echo " backend-test is running."
 
+echo " Waiting for backend-test entrypoint to finish..."
+ATTEMPTS=0
+MAX_ATTEMPTS=60
+until $COMPOSE_CMD logs --tail 200 backend-test 2>/dev/null | grep -q "Entrypoint complete"; do
+    ATTEMPTS=$((ATTEMPTS + 1))
+    if [ "$ATTEMPTS" -ge "$MAX_ATTEMPTS" ]; then
+        echo ""
+        echo "ERROR: backend-test entrypoint did not complete in time."
+        echo ""
+        echo "Recent backend-test logs:"
+        $COMPOSE_CMD logs --tail 80 backend-test || true
+        exit 1
+    fi
+    sleep 2
+done
+
+echo " backend-test entrypoint completed."
+
 UNIT_EXIT=0
 API_EXIT=0
 
@@ -128,10 +183,15 @@ echo " Unit Tests (repo/backend/unit_tests/)"
 echo " Started at: $(date '+%H:%M:%S')"
 echo "----------------------------------------------"
 
-$COMPOSE_CMD exec backend-test php artisan test \
-    --testsuite=Unit \
-    --colors=always \
-    $COVERAGE_FLAG || UNIT_EXIT=$?
+if [ "$COVERAGE_MODE" = true ]; then
+    $COMPOSE_CMD exec backend-test php artisan test \
+        --testsuite=Unit \
+        $COVERAGE_FLAG | tee "$UNIT_LOG" || UNIT_EXIT=$?
+else
+    $COMPOSE_CMD exec backend-test php artisan test \
+        --testsuite=Unit \
+        $COVERAGE_FLAG || UNIT_EXIT=$?
+fi
 
 echo " Finished at: $(date '+%H:%M:%S')"
 
@@ -144,10 +204,15 @@ echo " API Tests (repo/backend/api_tests/)"
 echo " Started at: $(date '+%H:%M:%S')"
 echo "----------------------------------------------"
 
-$COMPOSE_CMD exec backend-test php artisan test \
-    --testsuite=Api \
-    --colors=always \
-    $COVERAGE_FLAG || API_EXIT=$?
+if [ "$COVERAGE_MODE" = true ]; then
+    $COMPOSE_CMD exec backend-test php artisan test \
+        --testsuite=Api \
+        $COVERAGE_FLAG | tee "$API_LOG" || API_EXIT=$?
+else
+    $COMPOSE_CMD exec backend-test php artisan test \
+        --testsuite=Api \
+        $COVERAGE_FLAG || API_EXIT=$?
+fi
 
 echo " Finished at: $(date '+%H:%M:%S')"
 
@@ -173,8 +238,8 @@ else
 fi
 
 if [ "$COVERAGE_MODE" = true ]; then
-    echo ""
-    echo " Coverage report: backend/coverage/html/index.html"
+    print_coverage_summary "Unit" "$UNIT_LOG"
+    print_coverage_summary "API" "$API_LOG"
 fi
 
 echo "=============================================="

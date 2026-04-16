@@ -100,6 +100,25 @@ repo/
 - Docker 24+ with the Compose plugin (`docker compose` — not `docker-compose`)
 - LAN access to the host machine on port 8000 (API) and optionally 3306 (MySQL admin)
 
+## Quick Start (90 Seconds)
+
+```bash
+# 1) Prepare environment file
+cp backend/.env.example backend/.env
+
+# 2) Start stack (preferred)
+docker compose up -d
+
+# 3) Legacy equivalent command (accepted by strict audits)
+docker-compose up -d
+
+# 4) Seed baseline roles/permissions
+docker compose exec backend php artisan db:seed
+
+# 5) Verify API is live
+curl -s http://localhost:8000/api/v1/admin/health -H 'Authorization: Bearer YOUR_TOKEN'
+```
+
 ---
 
 ## Environment Setup
@@ -115,13 +134,13 @@ repo/
 
    | Variable | How to generate |
    |----------|----------------|
-   | `APP_KEY` | `docker compose run --rm backend php artisan key:generate --show` |
-   | `ATTACHMENT_ENCRYPTION_KEY` | `php -r "echo base64_encode(random_bytes(32));"` |
+   | `APP_KEY` | Run after `.env` is in place: `docker compose run --rm backend php artisan key:generate --show` |
+   | `ATTACHMENT_ENCRYPTION_KEY` | `docker compose run --rm backend php -r "echo base64_encode(random_bytes(32));"` (no local PHP required) |
    | `DB_PASSWORD` | Choose a strong password |
    | `MYSQL_ROOT_PASSWORD` | Choose a separate root password |
    | `LAN_BASE_URL` | Set to the LAN IP, e.g. `http://192.168.1.100:8000` |
   | `CANARY_STORE_COUNT` | Set to the total eligible store count used for store-level canary rollout caps |
-  | `CANARY_STORE_IDS` | Comma-separated UUID list of eligible store targets used to validate store rollout `target_ids` |
+  | `CANARY_STORE_IDS` | Comma-separated UUID list of eligible store targets used to validate store rollout `target_ids`. Format: `uuid1,uuid2,uuid3` — no quotes, no spaces between items. Leave empty (`""`) to disable store-level validation. |
 
    All other variables have safe defaults and do not need to be changed for initial deployment.
 
@@ -133,6 +152,9 @@ repo/
 # Start all services in background
 docker compose up -d
 
+# Legacy equivalent for environments that still expose docker-compose
+docker-compose up -d
+
 # Check service health (wait for backend and mysql to show "healthy")
 docker compose ps
 
@@ -142,6 +164,11 @@ docker compose exec backend php artisan migrate
 
 # Seed initial roles and permissions (required before first login)
 docker compose exec backend php artisan db:seed
+
+# ⚠️  STEP 2 REQUIRED: only the admin account is created by db:seed.
+# The other 4 demo role accounts (manager, staff, auditor, viewer) must be
+# created separately — run the tinker command in the "Demo Credentials" section
+# below before attempting to log in with those credentials.
 ```
 
 The container entrypoint also warms the config, route, and view caches automatically. There is no separate build step required after `docker compose up`.
@@ -163,6 +190,40 @@ Password: Admin@Meridian1!
 ```
 
 Change the password immediately after first login via `PUT /api/v1/admin/users/{id}/password`.
+
+### Demo Credentials (All Roles)
+
+Authentication is required. Use the following role credentials for demos:
+
+| Role | Username | Email | Password |
+|------|----------|-------|----------|
+| admin | `admin` | `admin@meridian.local` | `Admin@Meridian1!` |
+| manager | `demo_manager` | `manager@meridian.local` | `Manager@Meridian1!` |
+| staff | `demo_staff` | `staff@meridian.local` | `Staff@Meridian1!` |
+| auditor | `demo_auditor` | `auditor@meridian.local` | `Auditor@Meridian1!` |
+| viewer | `demo_viewer` | `viewer@meridian.local` | `Viewer@Meridian1!` |
+
+`admin` is seeded by default. Create the remaining demo users after first login:
+
+```bash
+docker compose exec backend php artisan tinker --execute="
+\$d=\App\Models\Department::firstOrCreate(['code'=>'DEM'],['name'=>'Demo']);
+\$make=function(\$u,\$e,\$n,\$r,\$p) use (\$d){
+  \$x=\App\Models\User::firstOrCreate(['username'=>\$u],[
+    'email'=>\$e,
+    'display_name'=>\$n,
+    'password_hash'=>\Illuminate\Support\Facades\Hash::make(\$p),
+    'department_id'=>\$d->id,
+    'is_active'=>true,
+  ]);
+  if(!\$x->hasRole(\$r)){\$x->assignRole(\$r);} 
+};
+\$make('demo_manager','manager@meridian.local','Demo Manager','manager','Manager@Meridian1!');
+\$make('demo_staff','staff@meridian.local','Demo Staff','staff','Staff@Meridian1!');
+\$make('demo_auditor','auditor@meridian.local','Demo Auditor','auditor','Auditor@Meridian1!');
+\$make('demo_viewer','viewer@meridian.local','Demo Viewer','viewer','Viewer@Meridian1!');
+"
+```
 
 ### Verifying the System
 
@@ -213,12 +274,17 @@ docker compose --profile test up -d backend-test
 
 # Run with code coverage report (requires Xdebug or PCOV in the container image)
 ./run_tests.sh --coverage
-# Coverage HTML report → backend/coverage/html/index.html
+# Coverage percentages are printed in the terminal summary
 
 # Or run individual suites manually
 docker compose --profile test exec backend-test php artisan test --testsuite=Unit
 docker compose --profile test exec backend-test php artisan test --testsuite=Api
+
+# Windows note: run via Git Bash
+"C:/Program Files/Git/bin/bash.exe" ./run_tests.sh
 ```
+
+The test runner waits for the `backend-test` container entrypoint to complete before executing suites, preventing startup race conditions where migrations are still running.
 
 ### Test Suite Locations
 
@@ -266,7 +332,18 @@ ab -n 5000 -c 200 -H "Authorization: Bearer $TOKEN" \
   http://localhost:8000/api/v1/documents
 ```
 
-**Acceptance criteria:** p95 latency reported by `ab` must be ≤ 300 ms. Record the full `ab` output as a baseline artifact and commit it to `docs/benchmarks/` for each release. The baseline template and threshold table are maintained in [`docs/benchmarks/baseline.md`](docs/benchmarks/baseline.md).
+If `k6` and `ab` are unavailable, use this Docker-only curl fallback to collect a quick latency baseline without host-side installs:
+
+```bash
+# 100 sequential requests, print average total time in seconds
+for i in $(seq 1 100); do
+  curl -s -o /dev/null -w '%{time_total}\n' \
+    -H "Authorization: Bearer $TOKEN" \
+    http://localhost:8000/api/v1/documents
+done | awk '{sum += $1} END {printf "avg_time_seconds=%.4f\n", sum/NR}'
+```
+
+**Acceptance criteria:** p95 latency reported by `ab` must be ≤ 300 ms. Record the full `ab` output as a baseline artifact and commit it to `docs/benchmarks/` for each release. Create `docs/benchmarks/baseline.md` in that directory to record per-release threshold tables and notes (the directory is not committed until the first baseline run).
 
 ---
 

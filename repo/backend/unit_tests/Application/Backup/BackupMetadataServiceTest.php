@@ -112,3 +112,89 @@ it('returns zero from pruneExpired when no records have expired', function () {
 
     expect($service->pruneExpired())->toBe(0);
 });
+
+it('startBackup emits a Create audit event with pending status payload', function () {
+    $service = app(BackupMetadataService::class);
+    $job     = $service->startBackup(isManual: true);
+
+    $event = \App\Models\AuditEvent::where('auditable_id', $job->id)
+        ->where('action', 'create')
+        ->first();
+
+    expect($event)->not->toBeNull()
+        ->and($event->payload['status'])->toBe('pending')
+        ->and($event->payload['is_manual'])->toBeTrue();
+});
+
+it('markRunning emits an Update audit event with pending_to_running transition', function () {
+    $service = app(BackupMetadataService::class);
+    $job     = $service->startBackup();
+    $service->markRunning($job->id);
+
+    $event = \App\Models\AuditEvent::where('auditable_id', $job->id)
+        ->where('action', 'update')
+        ->first();
+    expect($event)->not->toBeNull()
+        ->and($event->payload['status_transition'])->toBe('pending_to_running');
+});
+
+it('completeBackup emits an Update audit event with running_to_success transition and size', function () {
+    $service = app(BackupMetadataService::class);
+    $job     = $service->startBackup();
+    $service->markRunning($job->id);
+    $service->completeBackup($job->id, ['tables' => []], 42);
+
+    $event = \App\Models\AuditEvent::where('auditable_id', $job->id)
+        ->where('action', 'update')
+        ->where('payload->status_transition', 'running_to_success')
+        ->first();
+
+    expect($event)->not->toBeNull()
+        ->and($event->payload['size_bytes'])->toBe(42);
+});
+
+it('failBackup emits an Update audit event with running_to_failed transition', function () {
+    $service = app(BackupMetadataService::class);
+    $job     = $service->startBackup();
+    $service->markRunning($job->id);
+    $service->failBackup($job->id, 'boom');
+
+    $event = \App\Models\AuditEvent::where('auditable_id', $job->id)
+        ->where('action', 'update')
+        ->where('payload->status_transition', 'running_to_failed')
+        ->first();
+    expect($event)->not->toBeNull();
+});
+
+it('pruneExpired deletes the physical dump artifact referenced by the manifest', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Storage::disk('local')->put('backups/old.sql.gz.enc', 'ciphertext');
+
+    $expired = BackupJob::create([
+        'started_at'           => now()->subDays(20),
+        'status'               => 'success',
+        'is_manual'            => false,
+        'retention_expires_at' => now()->subDay(),
+        'manifest'             => ['dump_file' => 'backups/old.sql.gz.enc'],
+    ]);
+
+    app(BackupMetadataService::class)->pruneExpired();
+
+    expect(BackupJob::where('id', $expired->id)->exists())->toBeFalse();
+    expect(\Illuminate\Support\Facades\Storage::disk('local')->exists('backups/old.sql.gz.enc'))->toBeFalse();
+    expect(\App\Models\AuditEvent::where('auditable_id', $expired->id)
+        ->where('action', 'delete')->exists())->toBeTrue();
+});
+
+it('pruneExpired tolerates manifest dump_file that does not exist on disk', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    BackupJob::create([
+        'started_at'           => now()->subDays(20),
+        'status'               => 'success',
+        'is_manual'            => false,
+        'retention_expires_at' => now()->subDay(),
+        'manifest'             => ['dump_file' => 'backups/never-existed.sql.gz.enc'],
+    ]);
+
+    expect(app(BackupMetadataService::class)->pruneExpired())->toBe(1);
+});

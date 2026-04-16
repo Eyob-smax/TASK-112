@@ -38,7 +38,7 @@ class SalesDocumentService
         $doc = SalesDocument::create([
             'document_number' => $documentNumber,
             'site_code'       => $data['site_code'],
-            'status'          => SalesStatus::Draft,
+            'status'          => SalesStatus::Draft->value,
             'department_id'   => $data['department_id'],
             'created_by'      => $user->id,
             'notes'           => $data['notes'] ?? null,
@@ -73,8 +73,11 @@ class SalesDocumentService
      */
     public function update(User $user, SalesDocument $doc, array $data, string $ipAddress): SalesDocument
     {
-        if (!$doc->status->isEditable()) {
-            throw new InvalidSalesTransitionException($doc->status->value, 'edited');
+        $status = $this->resolveStatus($doc, 'edited');
+        $beforeHash = hash('sha256', json_encode($doc->toArray()));
+
+        if (!$status->isEditable()) {
+            throw new InvalidSalesTransitionException($status->value, 'edited');
         }
 
         if (array_key_exists('notes', $data)) {
@@ -85,9 +88,10 @@ class SalesDocumentService
             $doc->lineItems()->delete();
 
             $total = 0.0;
-            foreach ($data['line_items'] as $item) {
+            foreach ($data['line_items'] as $index => $item) {
                 SalesLineItem::create([
                     'sales_document_id' => $doc->id,
+                    'line_number'       => $index + 1,
                     'product_code'      => $item['product_code'],
                     'description'       => $item['description'] ?? null,
                     'quantity'          => (float) $item['quantity'],
@@ -100,7 +104,15 @@ class SalesDocumentService
         }
 
         $afterHash = hash('sha256', json_encode($doc->fresh()->toArray()));
-        $this->recordAudit(AuditAction::Update, $user->id, SalesDocument::class, $doc->id, $ipAddress, afterHash: $afterHash);
+        $this->recordAudit(
+            AuditAction::Update,
+            $user->id,
+            SalesDocument::class,
+            $doc->id,
+            $ipAddress,
+            beforeHash: $beforeHash,
+            afterHash: $afterHash
+        );
 
         return $doc->fresh()->load(['department', 'createdBy', 'lineItems']);
     }
@@ -110,13 +122,15 @@ class SalesDocumentService
      */
     public function submit(User $user, SalesDocument $doc, string $ipAddress): SalesDocument
     {
-        if (!$doc->status->canTransitionTo(SalesStatus::Reviewed)) {
-            throw new InvalidSalesTransitionException($doc->status->value, SalesStatus::Reviewed->value);
+        $status = $this->resolveStatus($doc, SalesStatus::Reviewed->value);
+
+        if (!$status->canTransitionTo(SalesStatus::Reviewed)) {
+            throw new InvalidSalesTransitionException($status->value, SalesStatus::Reviewed->value);
         }
 
         $beforeHash = hash('sha256', json_encode($doc->toArray()));
         $doc->update([
-            'status'      => SalesStatus::Reviewed,
+            'status'      => SalesStatus::Reviewed->value,
             'reviewed_by' => $user->id,
             'reviewed_at' => now(),
         ]);
@@ -132,13 +146,15 @@ class SalesDocumentService
      */
     public function complete(User $user, SalesDocument $doc, string $ipAddress): SalesDocument
     {
-        if (!$doc->status->canTransitionTo(SalesStatus::Completed)) {
-            throw new InvalidSalesTransitionException($doc->status->value, SalesStatus::Completed->value);
+        $status = $this->resolveStatus($doc, SalesStatus::Completed->value);
+
+        if (!$status->canTransitionTo(SalesStatus::Completed)) {
+            throw new InvalidSalesTransitionException($status->value, SalesStatus::Completed->value);
         }
 
         $beforeHash = hash('sha256', json_encode($doc->toArray()));
         $doc->update([
-            'status'       => SalesStatus::Completed,
+            'status'       => SalesStatus::Completed->value,
             'completed_at' => now(),
         ]);
 
@@ -176,13 +192,15 @@ class SalesDocumentService
      */
     public function void(User $user, SalesDocument $doc, string $reason, string $ipAddress): SalesDocument
     {
-        if (!$doc->status->canBeVoided()) {
-            throw new InvalidSalesTransitionException($doc->status->value, SalesStatus::Voided->value);
+        $status = $this->resolveStatus($doc, SalesStatus::Voided->value);
+
+        if (!$status->canBeVoided()) {
+            throw new InvalidSalesTransitionException($status->value, SalesStatus::Voided->value);
         }
 
         $beforeHash = hash('sha256', json_encode($doc->toArray()));
         $doc->update([
-            'status'       => SalesStatus::Voided,
+            'status'       => SalesStatus::Voided->value,
             'voided_at'    => now(),
             'voided_reason' => $reason,
         ]);
@@ -201,7 +219,9 @@ class SalesDocumentService
      */
     public function linkOutbound(User $user, SalesDocument $doc, string $ipAddress): SalesDocument
     {
-        if (!$doc->status->allowsOutboundLinkage()) {
+        $status = $this->resolveStatus($doc, 'link_outbound');
+
+        if (!$status->allowsOutboundLinkage()) {
             throw new OutboundLinkageNotAllowedException();
         }
 
@@ -227,6 +247,20 @@ class SalesDocumentService
         return $doc->fresh()->load(['department', 'createdBy', 'lineItems']);
     }
 
+    /**
+     * Soft-delete a sales document.
+     *
+     * Records a Delete audit event with before/after hashes for compliance.
+     */
+    public function delete(User $user, SalesDocument $doc, string $ipAddress): void
+    {
+        $beforeHash = hash('sha256', json_encode($doc->toArray()));
+        $doc->delete();
+        $afterHash = hash('sha256', json_encode($doc->toArray()));
+
+        $this->recordAudit(AuditAction::Delete, $user->id, SalesDocument::class, $doc->id, $ipAddress, beforeHash: $beforeHash, afterHash: $afterHash);
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
@@ -242,6 +276,18 @@ class SalesDocumentService
         }
 
         throw new AuthorizationException('You are not authorized to create sales documents for this department.');
+    }
+
+    private function resolveStatus(SalesDocument $doc, string $target): SalesStatus
+    {
+        $status = $doc->status;
+
+        if ($status instanceof SalesStatus) {
+            return $status;
+        }
+
+        $from = is_string($status) && $status !== '' ? $status : 'unknown';
+        throw new InvalidSalesTransitionException($from, $target);
     }
 
     private function recordAudit(

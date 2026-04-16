@@ -101,6 +101,20 @@ class SalesDocumentController extends Controller
     }
 
     /**
+     * DELETE /api/v1/sales/{document}
+     *
+     * Soft-delete a sales document. Returns 204 No Content on success.
+     */
+    public function destroy(Request $request, SalesDocument $document): \Illuminate\Http\Response
+    {
+        $this->authorize('delete', $document);
+
+        $this->service->delete($request->user(), $document, $request->ip());
+
+        return response()->noContent();
+    }
+
+    /**
      * POST /api/v1/sales/{document}/submit
      */
     public function submit(Request $request, SalesDocument $document): JsonResponse

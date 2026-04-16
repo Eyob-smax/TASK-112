@@ -95,6 +95,20 @@ class DocumentService
     }
 
     /**
+     * Soft-delete a document.
+     *
+     * Records a Delete audit event with before/after hashes for compliance.
+     */
+    public function delete(User $user, Document $document, string $ipAddress): void
+    {
+        $beforeHash = hash('sha256', json_encode($document->toArray()));
+        $document->delete();
+        $afterHash = hash('sha256', json_encode($document->toArray()));
+
+        $this->recordAudit(AuditAction::Delete, $user->id, Document::class, $document->id, $ipAddress, beforeHash: $beforeHash, afterHash: $afterHash);
+    }
+
+    /**
      * Archive a document, freezing it to read-only.
      *
      * Delegates to the repository which uses lockForUpdate() internally.

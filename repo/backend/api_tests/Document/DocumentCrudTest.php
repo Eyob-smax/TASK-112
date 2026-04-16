@@ -229,6 +229,29 @@ describe('Document CRUD', function () {
             ->assertJsonPath('error.code', 'document_archived');
     });
 
+    it('updates document fields via PATCH and returns 200', function () {
+        Sanctum::actingAs($this->manager, ['*'], 'sanctum');
+
+        $doc = Document::create([
+            'title'                => 'Patchable Title',
+            'document_type'        => 'policy',
+            'department_id'        => $this->dept->id,
+            'owner_id'             => $this->manager->id,
+            'status'               => 'draft',
+            'access_control_scope' => 'department',
+            'description'          => 'Old description',
+            'is_archived'          => false,
+        ]);
+
+        $response = $this->patchJson("/api/v1/documents/{$doc->id}", [
+            'description' => 'Updated with patch',
+        ], ['X-Idempotency-Key' => Str::uuid()->toString()]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.description', 'Updated with patch')
+            ->assertJsonPath('data.title', 'Patchable Title');
+    });
+
     // -------------------------------------------------------------------------
     // Archive
     // -------------------------------------------------------------------------
@@ -325,6 +348,72 @@ describe('Document CRUD', function () {
                 'data',
                 'meta' => ['pagination' => ['current_page', 'per_page', 'total', 'last_page']],
             ]);
+    });
+
+    it('soft-deletes a document and returns 204', function () {
+        Sanctum::actingAs($this->manager, ['*'], 'sanctum');
+
+        $doc = Document::create([
+            'title'                => 'Document To Delete',
+            'document_type'        => 'policy',
+            'department_id'        => $this->dept->id,
+            'owner_id'             => $this->manager->id,
+            'status'               => 'draft',
+            'access_control_scope' => 'department',
+            'is_archived'          => false,
+        ]);
+
+        $response = $this->deleteJson("/api/v1/documents/{$doc->id}", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
+
+        $response->assertStatus(204);
+
+        // Verify the document is soft-deleted in the database
+        $this->assertSoftDeleted('documents', ['id' => $doc->id]);
+    });
+
+    it('returns 404 when accessing a soft-deleted document', function () {
+        Sanctum::actingAs($this->manager, ['*'], 'sanctum');
+
+        $doc = Document::create([
+            'title'                => 'Document To Delete And Check',
+            'document_type'        => 'policy',
+            'department_id'        => $this->dept->id,
+            'owner_id'             => $this->manager->id,
+            'status'               => 'draft',
+            'access_control_scope' => 'department',
+            'is_archived'          => false,
+        ]);
+
+        $this->deleteJson("/api/v1/documents/{$doc->id}", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ])->assertStatus(204);
+
+        $response = $this->getJson("/api/v1/documents/{$doc->id}");
+        $response->assertStatus(404);
+    });
+
+    it('returns 403 when a user from a different department tries to delete a document', function () {
+        Sanctum::actingAs($this->outsider, ['*'], 'sanctum');
+        $this->outsider->givePermissionTo('archive documents');
+
+        $doc = Document::create([
+            'title'                => 'Cross-Dept Delete Target',
+            'document_type'        => 'policy',
+            'department_id'        => $this->dept->id,
+            'owner_id'             => $this->manager->id,
+            'status'               => 'draft',
+            'access_control_scope' => 'department',
+            'is_archived'          => false,
+        ]);
+
+        $response = $this->deleteJson("/api/v1/documents/{$doc->id}", [], [
+            'X-Idempotency-Key' => Str::uuid()->toString(),
+        ]);
+
+        // Outsider has the permission but wrong department → object-level 403
+        $response->assertStatus(403);
     });
 
 });

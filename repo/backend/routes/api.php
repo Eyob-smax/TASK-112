@@ -112,7 +112,8 @@ Route::middleware(['auth:sanctum', 'idempotency', 'mask.sensitive', 'record.timi
         ->name('todo.complete');
 
     // Sales Documents and Returns
-    Route::apiResource('/sales', \App\Http\Controllers\Api\SalesDocumentController::class);
+    Route::apiResource('/sales', \App\Http\Controllers\Api\SalesDocumentController::class)
+        ->parameters(['sales' => 'document']);
     Route::post('/sales/{document}/submit', [\App\Http\Controllers\Api\SalesDocumentController::class, 'submit'])
         ->name('sales.submit');
     Route::post('/sales/{document}/complete', [\App\Http\Controllers\Api\SalesDocumentController::class, 'complete'])
